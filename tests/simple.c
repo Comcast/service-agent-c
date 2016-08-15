@@ -24,7 +24,7 @@
 
 void test_1()
 {
-    /* Example. */
+    example();
 }
 
 void add_suites( CU_pSuite *suite )
