@@ -1,17 +1,24 @@
-# service-agent-c
+# service_agent
+systemd service agent
 
-C implementation of the TR-181 to systemd component
+## Build Requirements
 
-[![Build Status](https://travis-ci.org/Comcast/service-agent-c.svg?branch=master)](https://travis-ci.org/Comcast/service-agent-c) [![codecov.io](http://codecov.io/github/Comcast/service-agent-c/coverage.svg?branch=master)](http://codecov.io/github/Comcast/service-agent-c?branch=master)
+- https://github.com/troydhanson/uthash   (header file only)
 
-# Building and Testing Instructions
+## Files used by service agent
 
-```
-mkdir build
-cd build
-cmake ..
-make
-make test
-make coverage
-firefox index.html
-```
+Initialization of the service agent requires a directory name to be
+provided.  In this directory, the following files will be written:
+
+- /logs 	
+-- directory where log files will be written
+
+
+- svcagt_exclude_services.txt	
+-- list of services to be excluded (one per line)
+
+
+- svcagt_goal_states.txt	
+-- list of services that have been started or stopped by service agent
+-- and the state.
+
