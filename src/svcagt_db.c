@@ -249,6 +249,23 @@ int svcagt_set_by_name (const char *name, bool state, long state_file_pos)
 	return 0;
 }
 
+int svcagt_get_index (const char *name, unsigned *index, bool *state)
+{
+	int err;
+	unsigned i;
+	struct my_service_struct *db_node;
+
+	for (i=0; i<service_count; i++) {
+		db_node = service_index[i];
+		if (strcmp (db_node->name, name) == 0) {
+			*index = i;
+			*state = db_node->goal_state;
+			return 0;
+		}
+	}
+	return ENOENT;
+}
+
 int svcagt_db_set (unsigned index, bool state)
 {
 	int err;
@@ -345,10 +362,13 @@ unsigned svcagt_show_service_index (void)
 }
 
 // For testing
-void svcagt_show_service_list (service_list_item_t *service_list)
+void svcagt_show_service_list (service_list_item_t *service_list, const char *title)
 {
 	service_list_item_t *current;
-	printf ("Service List\n");
+	if (NULL == title)
+		printf ("Service List\n");
+	else
+		printf ("%s Service List\n");
 	DL_FOREACH (service_list, current) {
 		printf ("%u %s goal: %s\n", current->index,
 			current->svc_info.svc_name, 

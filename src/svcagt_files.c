@@ -83,6 +83,12 @@ int svcagt_files_open (const char *svcagt_directory)
 	return seek_file_pos (0);
 }
 
+int svcagt_goal_state_file_rewind (void)
+{
+	return seek_file_pos (0);
+}
+	
+
 int svcagt_files_close (void)
 {
 	if (NULL != exclude_fp)

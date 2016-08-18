@@ -49,6 +49,12 @@ int svcagt_exclude_file_read (char *svc_name);
 int svcagt_goal_state_file_read (char *svc_name, bool *state, long *file_pos);
 
 /**
+ * Rewind the goal states file
+ *
+ */
+int svcagt_goal_state_file_rewind (void);
+
+/**
  * Append one line to the goal states file
  *
  * @param svc_name 

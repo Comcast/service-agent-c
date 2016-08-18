@@ -64,6 +64,17 @@ int svcagt_db_get (unsigned index, const char **name, bool *state, bool db_query
 int svcagt_set_by_name (const char *name, bool state, long state_file_pos);
 
 /**
+ * Get the index of a named service
+ *  
+ * @param name name of service
+ * @param index index of the service
+ * @param state state of the service
+ * @return 0 on success, ENOENT if not found
+ *
+*/  
+int svcagt_get_index (const char *name, unsigned *index, bool *state);
+
+/**
  * Set the state of a specified service
  *
  * @param index index of the service to be updated
