@@ -275,17 +275,18 @@ int goal_states_file_eq_test (bool expected, ...)
 	va_start (ap, expected);
 	result = vlist_equals (service_list, ap);
 	va_end (ap);
+	remove_service_list (service_list);
 	if (expected) {
 		if (result <= 0) {
-			printf ("goal states file does not match, result %d\n", result);
+			printf ("FAIL: goal states file does not match, result %d\n", result);
 			return -1;
 		}
-		printf ("goal states file matches (expected)\n");
+		printf ("SUCCESS: goal states file matches\n");
 	} else {
 		if (result <= 0) {
-			printf ("goal states file does not match, as expected\n");
+			printf ("SUCCESS: goal states file does not match, as it should not\n");
 		} else {
-			printf ("goal states file matches (should not)\n");
+			printf ("FAIL: goal states file matches (but should not)\n");
 			return -1;
 		}
 	}
@@ -328,6 +329,22 @@ bool list1_in_list2 (service_list_item_t *list1, service_list_item_t *list2)
 	}
 }
 
+bool list_contains_dups (service_list_item_t *service_list)
+// assumes the list is sorted
+{
+	service_list_item_t *item;
+	service_list_item_t *prev = NULL;
+
+	DL_FOREACH (service_list, item) {
+		if (prev != NULL) {
+			if (strcmp (item->svc_info.svc_name, prev->svc_info.svc_name) == 0)
+				return true;
+		}
+		prev = item;
+	}
+	return false;
+}
+
 int vlist_contains (service_list_item_t *service_list, va_list ap)
 // assumes the service list is sorted
 {
@@ -353,11 +370,41 @@ int list_contains (service_list_item_t *service_list, ...)
 	return result;
 }
 
+int goal_states_file_contains_dups_test (bool dups_expected)
+{
+	int err;
+	bool result;
+	service_list_item_t *service_list;
+
+	err = load_goal_states_list (&service_list);
+	if (err != 0)
+		return -1;
+	//svcagt_show_service_list (service_list, "Goal States Contains Test");
+	DL_SORT (service_list, sort_cmp);
+	result = list_contains_dups (service_list);
+	remove_service_list (service_list);
+	if (!dups_expected) {
+		if (result) {
+			printf ("FAIL: goal_states file contains dups\n");
+			return -1;
+		}
+		printf ("SUCCESS: goal states file contains no dups\n");
+	} else {
+		if (result)
+			printf ("SUCCESS: goal_states file contains dups, as expected\n");
+		else {
+			printf ("FAIL: goal states file should have dups\n");
+			return -1;
+		}
+	}
+	return 0;
+}
+
 int goal_states_file_contains_test (bool expected, ...)
 {
 	int err, result;
 	va_list ap;
-	service_list_item_t *service_list, *my_list;
+	service_list_item_t *service_list;
 
 	err = load_goal_states_list (&service_list);
 	if (err != 0)
@@ -367,18 +414,19 @@ int goal_states_file_contains_test (bool expected, ...)
 	va_start (ap, expected);
 	result = vlist_contains (service_list, ap);
 	va_end (ap);
+	remove_service_list (service_list);
 	if (expected) {
 		if (result <= 0) {
-			printf ("goal states file does not contain expected settings, result %d\n", 
+			printf ("FAIL: goal states file does not contain expected values, result %d\n", 
 				result);
 			return -1;
 		}
-		printf ("goal states file contains expected settings\n");
+		printf ("SUCCESS: goal states file contains expected values\n");
 	} else {
 		if (result <= 0) {
-			printf ("goal states file does not contain settings, as expected\n");
+			printf ("SUCCESS: goal states file does not contain values that it should not\n");
 		} else {
-			printf ("goal states file contains settings (should not)\n");
+			printf ("FAIL: goal states file contains values that it should not\n");
 			return -1;
 		}
 	}
@@ -436,18 +484,18 @@ int pass_fail_tests (void)
 	if (err == 0) {
 		svcagt_show_service_list (list2, NULL);
 		if (lists_equal (service_list, list2))
-			printf ("Lists are equal (should be)\n");
+			printf ("SUCCESS: Lists are equal\n");
 		else
-			printf ("Lists are not equal\n");
+			printf ("FAIL: Lists are not equal\n");
 		remove_service_list (service_list);
 		err = make_svc_list (&service_list, "1service1", "0sajwt1", "0winbind",
 			"1utlist", "1zzlist2", NULL);
 	}
 	if (err == 0) {
 		if (lists_equal (service_list, list2))
-			printf ("Lists are equal\n");
+			printf ("FAIL: Lists are equal, but should not be\n");
 		else
-			printf ("Lists are not equal (should not be)\n");
+			printf ("SUCCESS: lists are not equal and should not be\n");
 		err = list_equals (list2, "1service1", "0sajwt1", "0winbind",
 			"1utlist", NULL);
 		printf ("List equals result %d (should be 1)\n", err);
@@ -457,9 +505,9 @@ int pass_fail_tests (void)
 		DL_SORT (service_list, sort_cmp);
 		DL_SORT (list2, sort_cmp);
 		if (list1_in_list2 (list2, service_list))
-			printf ("list2 is contained in service list (should be)\n");
+			printf ("SUCCESS: list2 is contained in service list as it should be)\n");
 		else
-			printf ("list2 not contained in service list\n");
+			printf ("FAIL: list2 not contained in service list\n");
 		err = list_contains (service_list, "0sajwt1", "1service1", "1utlist", NULL);
 		printf ("List contains result %d (should be 1)\n", err);
 		err = list_contains (service_list, "0sajwt1", "1service1", "1utlist", "0zzlist2", NULL);
@@ -489,10 +537,20 @@ int pass_fail_tests (void)
 	if ((err == 0) && (winbind_index >= 0)) {
 		err = svc_agt_set ((unsigned)winbind_index, svcagt_goal_state_str(true));
 		if (err == 0)
+			err = goal_states_file_contains_dups_test (false);
+		if (err == 0)
+			err = goal_states_file_eq_test (true, "1sendmail", "1winbind", NULL);
+		if (err == 0)
+			err = svc_agt_set ((unsigned)winbind_index, svcagt_goal_state_str(true));
+		if (err == 0)
+			err = goal_states_file_contains_dups_test (false);
+		if (err == 0)
 			err = goal_states_file_eq_test (true, "1sendmail", "1winbind", NULL);
 	}
 	if ((err == 0) && (sshd_index >= 0)) {
 		err = svc_agt_set ((unsigned)sshd_index, svcagt_goal_state_str(true));
+		if (err == 0)
+			err = goal_states_file_contains_dups_test (false);
 		if (err == 0)
 			err = goal_states_file_eq_test (true, "1sendmail", "1winbind", "1sshd", NULL);
 		if (err == 0)
@@ -502,6 +560,8 @@ int pass_fail_tests (void)
 	}
 	if ((err == 0) && (sm_client_index >= 0)) {
 		err = svc_agt_set ((unsigned)sm_client_index, svcagt_goal_state_str(true));
+		if (err == 0)
+			err = goal_states_file_contains_dups_test (false);
 		if (err == 0)
 			err = goal_states_file_eq_test 
 				(true, "1sendmail", "1winbind", "1sshd", "1sm-client", NULL);
@@ -514,6 +574,10 @@ int pass_fail_tests (void)
 		if (err == 0)
 			err = goal_states_file_contains_test
 				(false, "1sendmail", "1winbind", "1sshd", "1upower", NULL);
+		if (err == 0)
+			err = svc_agt_set ((unsigned)sm_client_index, svcagt_goal_state_str(true));
+		if (err == 0)
+			err = goal_states_file_contains_dups_test (false);
 	}
 	err = show_goal_states_file ();
 				
