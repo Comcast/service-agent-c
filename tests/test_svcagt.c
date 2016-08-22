@@ -4,6 +4,8 @@
 //
 
 #include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <fcntl.h>
 #include <string.h>
 #include <unistd.h>
@@ -22,9 +24,68 @@ extern void svcagt_show_service_list (service_list_item_t *service_list, const c
 extern const char *svcagt_goal_state_str (bool state);
 extern bool svcagt_suppress_init_states;
 extern const char *svcagt_systemctl_cmd;
+extern void dbg (const char *fmt, ...);
+extern void dbg_err (int err, const char *fmt, ...);
 
 static const char *running_str = "Running";
 static const char *stopped_str = "Stopped";
+
+#define MOCK_PID_FILE_NAME "mock_systemctl_pid.txt"
+
+int check_mock_systemctl_running (void)
+{
+	int err;
+	char *pos;
+	FILE *mock_pid_file;
+	const char *home_dir;
+	char name_buf[128];
+	char pid_buf[32];
+	struct stat stat_buf;
+
+	home_dir = getenv ("HOME");
+	if (NULL == home_dir) {
+		printf ("No $HOME defined\n");
+		return ENOENT;
+	}
+
+	sprintf (name_buf, "%s/%s", home_dir, MOCK_PID_FILE_NAME);
+
+	mock_pid_file = fopen (name_buf, "r");
+	if (NULL == mock_pid_file) {
+		printf ("mock_systemctl should be started\n");
+		printf ("file %s could not be opened\n", name_buf);
+		return -1;
+	}
+
+	if (NULL == fgets (pid_buf, 32, mock_pid_file)) {
+		printf ("mock_systemctl should be started\n");
+		printf ("file %s is invalid\n", name_buf);
+		return -1;
+	}
+	pos = strchr (pid_buf, '\n');
+	if (pos != NULL)
+		*pos = 0;
+
+	pid_buf[31] = 0;
+	fclose (mock_pid_file);
+
+	sprintf (name_buf, "/proc/%s", pid_buf);
+
+	err = stat (name_buf, &stat_buf);
+	if (err != 0) {
+		printf ("mock_systemctl should be started\n");
+		dbg_err (errno, "unable to stat %s\n", name_buf);
+		return -1;
+	}
+	if (!S_ISDIR (stat_buf.st_mode)) {
+		printf ("mock_systemctl should be started\n");
+		printf ("%s should be a directory\n", name_buf);
+		return -1;
+	}
+
+	return 0;
+}
+
 
 int load_goal_states_list (service_list_item_t **service_list)
 {
@@ -262,11 +323,60 @@ int list_equals (service_list_item_t *service_list, ...)
 	return result;
 }
 
+int cmp_svc_info (service_list_item_t *a, service_list_item_t *b)
+{
+	int	result = strcmp (a->svc_info.svc_name, b->svc_info.svc_name);
+	if (result == 0)
+		result = strcmp (a->svc_info.goal_state, b->svc_info.goal_state);
+	return result;
+}
+
+int sort_cmp (void *a, void *b)
+{
+	service_list_item_t *svc_item_a = (service_list_item_t *) a;
+	service_list_item_t *svc_item_b = (service_list_item_t *) b;
+	return cmp_svc_info (svc_item_a, svc_item_b);
+}
+
+int get_all_eq_test (bool expected, ...)
+{
+	int err, result;
+	va_list ap;
+	service_list_item_t *service_list;
+
+	err = svc_agt_get_all (&service_list, false);
+	if (err < 0) {
+		printf ("FAIL: svc_agt_get_all error\n");
+		return -1;
+	}
+	DL_SORT (service_list, sort_cmp);
+	//svcagt_show_service_list (service_list, "Goal States Eq Test");
+	va_start (ap, expected);
+	result = vlist_equals (service_list, ap);
+	va_end (ap);
+	svc_agt_remove_service_list (service_list);
+	if (expected) {
+		if (result <= 0) {
+			printf ("FAIL: svc_agt get_all list does not match, result %d\n", result);
+			return -1;
+		}
+		printf ("SUCCESS: svc_agt get_all list matches\n");
+	} else {
+		if (result <= 0) {
+			printf ("SUCCESS: svc agt get_all list does not match, as it should not\n");
+		} else {
+			printf ("FAIL: svc agt get_all list matches (but should not)\n");
+			return -1;
+		}
+	}
+	return 0;
+}
+
 int goal_states_file_eq_test (bool expected, ...)
 {
 	int err, result;
 	va_list ap;
-	service_list_item_t *service_list, *my_list;
+	service_list_item_t *service_list;
 
 	err = load_goal_states_list (&service_list);
 	if (err != 0)
@@ -291,21 +401,6 @@ int goal_states_file_eq_test (bool expected, ...)
 		}
 	}
 	return 0;
-}
-
-int cmp_svc_info (service_list_item_t *a, service_list_item_t *b)
-{
-	int	result = strcmp (a->svc_info.svc_name, b->svc_info.svc_name);
-	if (result == 0)
-		result = strcmp (a->svc_info.goal_state, b->svc_info.goal_state);
-	return result;
-}
-
-int sort_cmp (void *a, void *b)
-{
-	service_list_item_t *svc_item_a = (service_list_item_t *) a;
-	service_list_item_t *svc_item_b = (service_list_item_t *) b;
-	return cmp_svc_info (svc_item_a, svc_item_b);
 }
 
 bool list1_in_list2 (service_list_item_t *list1, service_list_item_t *list2)
@@ -400,6 +495,41 @@ int goal_states_file_contains_dups_test (bool dups_expected)
 	return 0;
 }
 
+int get_all_contains_test (bool expected, ...)
+{
+	int err, result;
+	va_list ap;
+	service_list_item_t *service_list;
+
+	err = svc_agt_get_all (&service_list, false);
+	if (err < 0) {
+		printf ("FAIL: svc_agt_get_all error\n");
+		return -1;
+	}
+	DL_SORT (service_list, sort_cmp);
+	//svcagt_show_service_list (service_list, "Goal States Eq Test");
+	va_start (ap, expected);
+	result = vlist_contains (service_list, ap);
+	va_end (ap);
+	svc_agt_remove_service_list (service_list);
+	if (expected) {
+		if (result <= 0) {
+			printf ("FAIL: svc_agt get_all list does not contain expected values, result %d\n", 
+				result);
+			return -1;
+		}
+		printf ("SUCCESS: svc_agt get_all list contains expected values\n");
+	} else {
+		if (result <= 0) {
+			printf ("SUCCESS: svc agt get_all list does not contain values it should not\n");
+		} else {
+			printf ("FAIL: svc agt get_all list contains values (but should not)\n");
+			return -1;
+		}
+	}
+	return 0;
+}
+
 int goal_states_file_contains_test (bool expected, ...)
 {
 	int err, result;
@@ -432,6 +562,31 @@ int goal_states_file_contains_test (bool expected, ...)
 	}
 	return 0;
 }
+
+int get_test (unsigned index, const char *name, bool expected)
+{
+	int err;
+	service_info_t info;
+	const char *expected_str;
+
+	err = svc_agt_get (index, &info, false);
+	if (err != 0)
+		return err;
+	if (strcmp (info.svc_name, name) != 0) {
+		printf ("FAIL: get test expected name %s but got %s\n",
+			name, info.svc_name);
+		return -1;
+	}
+	expected_str = svcagt_goal_state_str (expected);
+	if (strcmp (info.goal_state, expected_str) != 0) {
+		printf ("FAIL: get test expected state %s but got %s\n",
+			expected_str, info.goal_state);
+		return -1;
+	}
+	printf ("SUCCESS: expected and got %s %s\n", info.svc_name, info.goal_state);
+	return 0;
+}
+
 
 int show_goal_states_file (void)
 {
@@ -533,6 +688,11 @@ int pass_fail_tests (void)
 		err = svc_agt_set ((unsigned)sendmail_index, svcagt_goal_state_str(true));
 		if (err == 0)
 			err = goal_states_file_eq_test (true, "1sendmail", NULL);
+		if (err == 0)
+			err = get_test ((unsigned)sendmail_index, "sendmail", true);
+		if (err == 0)
+			err = get_all_contains_test (true, "1sendmail", NULL);
+		svcagt_show_service_db ();
 	}
 	if ((err == 0) && (winbind_index >= 0)) {
 		err = svc_agt_set ((unsigned)winbind_index, svcagt_goal_state_str(true));
@@ -540,6 +700,8 @@ int pass_fail_tests (void)
 			err = goal_states_file_contains_dups_test (false);
 		if (err == 0)
 			err = goal_states_file_eq_test (true, "1sendmail", "1winbind", NULL);
+		if (err == 0)
+			err = get_test ((unsigned)winbind_index, "winbind", true);
 		if (err == 0)
 			err = svc_agt_set ((unsigned)winbind_index, svcagt_goal_state_str(true));
 		if (err == 0)
@@ -553,6 +715,10 @@ int pass_fail_tests (void)
 			err = goal_states_file_contains_dups_test (false);
 		if (err == 0)
 			err = goal_states_file_eq_test (true, "1sendmail", "1winbind", "1sshd", NULL);
+		if (err == 0)
+			err = get_all_contains_test (true, "1sendmail", "1sshd", "1winbind", NULL);
+		if (err == 0)
+			err = get_test ((unsigned)sshd_index, "sshd", true);
 		if (err == 0)
 			err = goal_states_file_eq_test (false, "1sendmail", "1winbind", "0sshd", NULL);
 		if (err == 0)
@@ -578,25 +744,18 @@ int pass_fail_tests (void)
 			err = svc_agt_set ((unsigned)sm_client_index, svcagt_goal_state_str(true));
 		if (err == 0)
 			err = goal_states_file_contains_dups_test (false);
+		if (err == 0)
+			err = svc_agt_set ((unsigned)sm_client_index, svcagt_goal_state_str(false));
+		if (err == 0)
+			err = goal_states_file_eq_test 
+				(true, "1sendmail", "1winbind", "1sshd", "0sm-client", NULL);
+		if (err == 0)
+			err = get_all_contains_test (true, "1sendmail", "0sm-client", "1sshd", "1winbind", NULL);
+		if (err == 0)
+			err = get_test ((unsigned)sm_client_index, "sm-client", false);
 	}
 	err = show_goal_states_file ();
 				
-	
-	if (err == 0)
-		err = svcagt_db_get (1, &name, &state, false);
-	if (err == 0) {
-		state = !state;
-		err = svc_agt_set (1, svcagt_goal_state_str (state));
-	}
-	if (err == 0)
-		err = show_goal_states_file ();
-	if (err == 0) {
-		state = !state;
-		err = svc_agt_set (1, svcagt_goal_state_str (state));
-	}
-	if (err == 0)
-		err = show_goal_states_file ();
-
 	svc_agt_shutdown ();
 	return err;
 
@@ -622,6 +781,9 @@ int main(int argc, char *argv[])
 		printf ("make timestamp error %d\n", err);
 
 	svcagt_systemctl_cmd = "./mock_systemctl";
+
+	if (check_mock_systemctl_running() != 0)
+		return 4;
 
 	if (argc <= 1)
 		return pass_fail_tests ();

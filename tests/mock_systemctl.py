@@ -8,6 +8,7 @@ import subprocess as SUBP
 cmd_pipe_name = "/mock_systemctl_cmds.txt"
 response_pipe_name = "/mock_systemctl_responses.txt"
 msg_file = "/mock_systemctl_msgs.txt"
+pid_file = "/mock_systemctl_pid.txt"
 
 def remove_pipe (pipe_name):
   try:
@@ -96,42 +97,59 @@ if not home_dir:
 cmd_pipe_name = home_dir + cmd_pipe_name
 response_pipe_name = home_dir + response_pipe_name
 msg_file = home_dir + msg_file
+pid_file = home_dir + pid_file
 
 msgf = open (msg_file, "w")
 msgf.write ("Opening pipes\n")
 msgf.close()
 
+pidf = open (pid_file, "w")
+pidf.write ("%u\n" % os.getpid())  
+pidf.close ()
+
 cp = open_pipe (cmd_pipe_name, os.O_RDONLY)
 if cp < 0:
+  os.remove (pid_file)
   sys.exit (4)
+
+msgf = open (msg_file, "w")
+msgf.write ("Opened cmd pipe\n")
+msgf.close()
+
 rp = open_pipe (response_pipe_name, os.O_WRONLY)
 if rp < 0:
   os.close (cp)
+  os.remove (pid_file)
   sys.exit (4)
 
 msgf = open (msg_file, "w")
 msgf.write ("Opened pipes\n")
 msgf.close()
 
-while (True):
-  line = os.read (cp, 128)
-  if not line:
-    continue;
-  cmd = line[0]
-  svc_name = line[1:]
-  pos = svc_name.find (".service")
-  if (pos < 0):
-    pos = svc_name.find ("\n")
-  if pos < 0:
-    invalid_command (line)
-    continue
-  svc_name = svc_name[0:pos]
-  if cmd == "?":
-    test_is_active (svc_name)
-  elif cmd == "1":
-    start_service (svc_name)
-  elif cmd == "0":
-    stop_service (svc_name)
-  else:
-    invalid_command (line)
-#end while
+try:
+  while (True):
+    line = os.read (cp, 128)
+    if not line:
+      continue
+    cmd = line[0]
+    svc_name = line[1:]
+    pos = svc_name.find (".service")
+    if (pos < 0):
+      pos = svc_name.find ("\n")
+    if pos < 0:
+      invalid_command (line)
+      continue
+    svc_name = svc_name[0:pos]
+    if cmd == "?":
+      test_is_active (svc_name)
+    elif cmd == "1":
+      start_service (svc_name)
+    elif cmd == "0":
+      stop_service (svc_name)
+    else:
+      invalid_command (line)
+  #end while
+except KeyboardInterrupt, e:
+  print "Ended"
+
+os.remove (pid_file)
