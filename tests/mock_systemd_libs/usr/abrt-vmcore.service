@@ -1,0 +1,13 @@
+[Unit]
+Description=Harvest vmcores for ABRT
+After=abrtd.service kdump.service
+Requisite=abrtd.service
+ConditionDirectoryNotEmpty=/var/crash
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/abrt-harvest-vmcore
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,11 @@
+[Unit]
+Description=RPC bind service
+Requires=rpcbind.socket
+
+[Service]
+Type=forking
+EnvironmentFile=/etc/sysconfig/rpcbind
+ExecStart=/sbin/rpcbind -w ${RPCBIND_ARGS}
+
+[Install]
+Also=rpcbind.socket

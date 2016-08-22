@@ -23,6 +23,7 @@ extern unsigned svcagt_show_service_index (void);
 extern void svcagt_show_service_list (service_list_item_t *service_list, const char *title);
 extern const char *svcagt_goal_state_str (bool state);
 extern bool svcagt_suppress_init_states;
+extern void set_test_services (const char *test_services_dir1, const char *test_services_dir2);
 extern const char *svcagt_systemctl_cmd;
 extern void dbg (const char *fmt, ...);
 extern void dbg_err (int err, const char *fmt, ...);
@@ -672,7 +673,103 @@ int pass_fail_tests (void)
 	}
 
 
+		svcagt_suppress_init_states = true;
+		err = svc_agt_init (".");
+		if (err != 0)
+			return 0;
+
+
+	#if 0
+	// not using namebuf
+		for (i=0; i<40; i++) {
+			sprintf (test_name, "TestFileNameWhichIsPrettyLong%d", i);
+			ptr = svcagt_add_name (test_name);
+			printf ("Added name is %s\n", ptr);
+		}
+	#endif
+	
+		svcagt_db_add ("service4");
+		svcagt_db_add ("service3");
+		svcagt_db_add ("service2");
+		svcagt_db_add ("service1");
+		svcagt_show_service_db ();
+
+		svcagt_db_remove ("service1");
+		svcagt_db_remove ("nosuch");
+		svcagt_db_init_index ();
+		svcagt_show_service_index ();
+	
+		err = svcagt_db_get (0, &name, &state, true);
+		if (err == 0) {
+			printf ("SUCCESS: Get 0: %s goal: %d\n", name,	state);
+		} else {
+			printf ("FAIL: Get 0 (service2) failed\n");
+		}
+		err = svcagt_set_by_name ("service4", true, 22L);
+		err = svcagt_db_get (2, &name, &state, true);
+		if (err == 0) {
+			printf ("SUCCESS: Get 2: %s goal: %d\n", name,	state);
+		} else {
+			printf ("FAIL: Get 2 (service4) failed\n");
+		}
+	
+		err = svcagt_db_get (3, &name, &state, true);
+		if (err == 0) {
+			printf ("FAIL: Should not get 3: %s goal: %d\n", name,	state);
+		} else {
+			printf ("SUCCESS: Get 3 (service1) failed (expected)\n");
+		}
+
+		err = svcagt_db_set (1, true);
+		if (err == 0)
+			err = svcagt_db_get (1, &name, &state, true);
+		if (err == 0) {
+			printf ("Set/Get 1: %s goal: %d\n", name,	state);
+			if (state)
+				printf ("SUCCESS: Set/Get 1 (service3) true\n");
+			else
+				printf ("FAIL: Set/Get 1 (service3) should be true\n"); 
+		} else {
+			printf ("FAIL: Set/Get 1 (service3) failed\n");
+		}
+			
+		err = svcagt_db_set (1, false);
+		if (err == 0)
+			err = svcagt_db_get (1, &name, &state, true);
+		if (err == 0) {
+			printf ("Set/Get 1: %s goal: %d\n", name,	state);
+			if (!state)
+				printf ("SUCCESS: Set/Get 1 (service3) false\n");
+			else
+				printf ("FAIL: Set/Get 1 (service3) should be false\n"); 
+		} else {
+			printf ("FAIL: Set/Get 1 failed\n");
+		}
+
+		err = get_all_eq_test (true, "1service4", "0service3", "1service2", NULL);
+		svcagt_show_service_db ();
+
+
+	if (err == 0) {
+		err = svc_agt_get_all (&service_list, true);
+		if (err >= 0) {
+			svcagt_show_service_list (service_list, "Gets/Sets");
+			svc_agt_remove_service_list (service_list);
+		}
+	} else {
+		printf ("Error %d on svcagt_db_get_all\n", err);
+	}
+	svc_agt_shutdown ();
+
+	err = remove ("./svcagt_goal_states.txt");
+	if ((err != 0) && (err != ENOENT)) {
+		dbg_err (errno, "Error removing goal states file\n");
+		return -1;
+	}
+
 	svcagt_suppress_init_states = false;
+	set_test_services ("./mock_systemd_libs/etc", "./mock_systemd_libs/usr");
+
 	err = svc_agt_init (".");
 	if (err == 0)
 		err = show_goal_states_file ();
@@ -843,81 +940,19 @@ int main(int argc, char *argv[])
 		svcagt_show_service_db ();
 		err = svc_agt_get_all (&service_list, false);
 		
+		if (err >= 0) {
+			svcagt_show_service_list (service_list, "Gets/Sets");
+			svc_agt_remove_service_list (service_list);
+		} else {
+			printf ("Error %d on svcagt_db_get_all\n", err);
+		}
+		svc_agt_shutdown ();
+
 	} else {
 
-		svcagt_suppress_init_states = true;
-		err = svc_agt_init (".");
-		if (err != 0)
-			return 0;
-
-
-	#if 0
-	// not using namebuf
-		for (i=0; i<40; i++) {
-			sprintf (test_name, "TestFileNameWhichIsPrettyLong%d", i);
-			ptr = svcagt_add_name (test_name);
-			printf ("Added name is %s\n", ptr);
-		}
-	#endif
-	
-		svcagt_db_add ("service4");
-		svcagt_db_add ("service3");
-		svcagt_db_add ("service2");
-		svcagt_db_add ("service1");
-		svcagt_show_service_db ();
-		svcagt_db_remove ("service1");
-		svcagt_db_remove ("nosuch");
-		svcagt_db_init_index ();
-		svcagt_show_service_index ();
-	
-		err = svcagt_db_get (0, &name, &state, true);
-		if (err == 0) {
-			printf ("Get 0: %s goal: %d\n", name,	state);
-		} else {
-			printf ("Get 0 failed\n");
-		}
-		err = svcagt_db_get (3, &name, &state, true);
-		if (err == 0) {
-			printf ("Get 3: %s goal: %d\n", name,	state);
-		} else {
-			printf ("Get 3 failed (expected)\n");
-		}
-		err = svcagt_set_by_name ("service4", true, 22L);
-		err = svcagt_db_get (2, &name, &state, true);
-		if (err == 0) {
-			printf ("Get 2: %s goal: %d\n", name,	state);
-		} else {
-			printf ("Get 2 failed\n");
-		}
-	
-		err = svcagt_db_set (1, true);
-		if (err == 0)
-			err = svcagt_db_get (1, &name, &state, true);
-		if (err == 0) {
-			printf ("Set/Get 1: %s goal: %d\n", name,	state);
-		} else {
-			printf ("Set/Get 1 failed\n");
-		}
-			
-		err = svcagt_db_set (1, false);
-		if (err == 0)
-			err = svcagt_db_get (1, &name, &state, true);
-		if (err == 0) {
-			printf ("Set/Get 1: %s goal: %d\n", name,	state);
-		} else {
-			printf ("Set/Get 1 failed\n");
-		}
-		svcagt_show_service_db ();
-		err = svc_agt_get_all (&service_list, true);
+		printf ("Invalid argument %s\n", arg);
 	}
 
-	if (err >= 0) {
-		svcagt_show_service_list (service_list, "Gets/Sets");
-		svc_agt_remove_service_list (service_list);
-	} else {
-		printf ("Error %d on svcagt_db_get_all\n", err);
-	}
-	svc_agt_shutdown ();
 
 
 	printf ("Test done!\n");

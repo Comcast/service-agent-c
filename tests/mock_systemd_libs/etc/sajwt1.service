@@ -1,0 +1,10 @@
+[Unit]
+Description=ServiceAgent JWT server daemon
+
+[Service]
+ExecStart=/home/bwilla0627c/gitspace/ccsp/svcmgr_jwt/tests/jwt_service 1
+ExecStop=/bin/kill -s TERM $MAINPID
+KillMode=process
+
+[Install]
+

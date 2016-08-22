@@ -22,6 +22,16 @@
 #define SERVICES_DIR1 "/etc/systemd/system"
 #define SERVICES_DIR2 "/usr/lib/systemd/system"
 
+const char *services_dir1 = SERVICES_DIR1;
+const char *services_dir2 = SERVICES_DIR2;
+
+// used for debugging
+void set_test_services (const char *test_services_dir1, const char *test_services_dir2)
+{
+	services_dir1 = test_services_dir1;
+	services_dir2 = test_services_dir2;
+}
+
 // Extract service name from directory entry.
 // Return false if it's not a service file name
 static bool get_dirent_svc_name (const char *name, char *svc_name)
@@ -80,9 +90,9 @@ int find_services_ (const char *services_dir)
 // and add to the database.
 int find_services (void)
 {
-	int err = find_services_ (SERVICES_DIR1);
+	int err = find_services_ (services_dir1);
 	if (err == 0)
-		err = find_services_ (SERVICES_DIR2);
+		err = find_services_ (services_dir2);
 	return err;
 }
 

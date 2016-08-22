@@ -1,0 +1,11 @@
+[Unit]
+Description=Proxy Sharing V4L VBI Device Between Applications
+After=syslog.target
+
+[Service]
+Type=forking
+ExecStart=/usr/sbin/zvbid
+
+[Install]
+WantedBy=multi-user.target
+
