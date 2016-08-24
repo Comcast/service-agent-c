@@ -672,11 +672,17 @@ int pass_fail_tests (void)
 		remove_service_list (list2);
 	}
 
+	err = svc_agt_init ("nosuch");
+	if (err == 0) {
+		printf ("FAIL: svc_agt_init of non-existent directory should fail\n");
+		svc_agt_shutdown ();
+	} else
+		printf ("SUCCESS: svc_sgt_init of non-existent directory failed, as it should\n"); 
 
-		svcagt_suppress_init_states = true;
-		err = svc_agt_init (".");
-		if (err != 0)
-			return 0;
+	svcagt_suppress_init_states = true;
+	err = svc_agt_init (".");
+	if (err != 0)
+		return 0;
 
 
 	#if 0
@@ -720,17 +726,17 @@ int pass_fail_tests (void)
 			printf ("SUCCESS: Get 3 (service1) failed (expected)\n");
 		}
 
-		err = svcagt_db_set (1, true);
+		err = svcagt_db_set (0, true);
 		if (err == 0)
-			err = svcagt_db_get (1, &name, &state, true);
+			err = svcagt_db_get (0, &name, &state, true);
 		if (err == 0) {
-			printf ("Set/Get 1: %s goal: %d\n", name,	state);
+			printf ("Set/Get 0: %s goal: %d\n", name,	state);
 			if (state)
-				printf ("SUCCESS: Set/Get 1 (service3) true\n");
+				printf ("SUCCESS: Set/Get 0 (service2) true\n");
 			else
-				printf ("FAIL: Set/Get 1 (service3) should be true\n"); 
+				printf ("FAIL: Set/Get 0 (service2) should be true\n"); 
 		} else {
-			printf ("FAIL: Set/Get 1 (service3) failed\n");
+			printf ("FAIL: Set/Get 0 (service2) failed\n");
 		}
 			
 		err = svcagt_db_set (1, false);
@@ -746,7 +752,7 @@ int pass_fail_tests (void)
 			printf ("FAIL: Set/Get 1 failed\n");
 		}
 
-		err = get_all_eq_test (true, "1service4", "0service3", "1service2", NULL);
+		err = get_all_eq_test (true, "1service2", "0service3", "1service4", NULL);
 		svcagt_show_service_db ();
 
 
@@ -894,10 +900,6 @@ int main(int argc, char *argv[])
 		unsigned service_count;
 		unsigned long delay_secs = 0;
 
-		if (strcmp (arg, "baddir") == 0) {
-			err = svc_agt_init ("nosuch");
-			return 0;
-		}
 		if (argc >= 3) {
 			delay_secs = strtoul (argv[2], NULL, 10);
 			if (delay_secs > 60)
