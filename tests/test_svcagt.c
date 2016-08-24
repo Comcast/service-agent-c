@@ -24,6 +24,7 @@ extern void svcagt_show_service_list (service_list_item_t *service_list, const c
 extern const char *svcagt_goal_state_str (bool state);
 extern bool svcagt_suppress_init_states;
 extern void set_test_services (const char *test_services_dir1, const char *test_services_dir2);
+extern int svcagt_get_service_state (const char *svc_name);
 extern const char *svcagt_systemctl_cmd;
 extern void dbg (const char *fmt, ...);
 extern void dbg_err (int err, const char *fmt, ...);
@@ -917,6 +918,13 @@ int systemd_tests (void)
 		} else {
 			printf ("FAIL: Get 1 (sajwt1) failed\n");
 		}
+		if (err == 0) {
+			err = svcagt_get_service_state ("sajwt1");
+			if (err == 1)
+				printf ("SUCCESS: sajwt1 service started\n");
+			else
+				printf ("FAIL: sajwt1 service state %d\n", err);
+		}
 		delay (delay_secs);
 		err = svc_agt_set (sajwt2_index, running_str);
 		err = svc_agt_get (sajwt2_index, &svc_info, false);
@@ -928,6 +936,13 @@ int systemd_tests (void)
 				printf ("FAIL: Get 2 should be %s\n", running_str);
 		} else {
 			printf ("FAIL: Get 2 (sajwt2) failed\n");
+		}
+		if (err == 0) {
+			err = svcagt_get_service_state ("sajwt2");
+			if (err == 1)
+				printf ("SUCCESS: sajwt2 service started\n");
+			else
+				printf ("FAIL: sajwt2 service state %d\n", err);
 		}
 		err = svc_agt_set (sajwt1_index, stopped_str);
 		delay (delay_secs);
@@ -946,6 +961,13 @@ int systemd_tests (void)
 		} else {
 			printf ("FAIL: Get 1 (sajwt1) failed\n");
 		}
+		if (err == 0) {
+			err = svcagt_get_service_state ("sajwt1");
+			if (err == 0)
+				printf ("SUCCESS: sajwt1 service stopped\n");
+			else
+				printf ("FAIL: sajwt1 service state %d\n", err);
+		}
 
 		err = svc_agt_get (sajwt2_index, &svc_info, false);
 		if (err == 0) {
@@ -957,6 +979,13 @@ int systemd_tests (void)
 		} else {
 			printf ("FAIL: Get 2 (sajwt2) failed\n");
 		}
+		if (err == 0) {
+			err = svcagt_get_service_state ("sajwt2");
+			if (err == 0)
+				printf ("SUCCESS: sajwt2 service stopped\n");
+			else
+				printf ("FAIL: sajwt2 service state %d\n", err);
+		}
 
 		err = svc_agt_get (sajwt3_index, &svc_info, false);
 		if (err == 0) {
@@ -967,6 +996,13 @@ int systemd_tests (void)
 				printf ("FAIL: Get 3 should be %s\n", stopped_str);
 		} else {
 			printf ("FAIL: Get 3 (sajwt3) failed\n");
+		}
+		if (err == 0) {
+			err = svcagt_get_service_state ("sajwt3");
+			if (err == 0)
+				printf ("SUCCESS: sajwt3 service stopped\n");
+			else
+				printf ("FAIL: sajwt3 service state %d\n", err);
 		}
 
 	}
@@ -988,6 +1024,7 @@ int main(int argc, char *argv[])
 	int err;
 	char timestamp[20];
 	const char *arg;
+	struct stat stat_buf;
 
 	err = make_current_timestamp (timestamp);
 	if (err == 0)
@@ -1001,11 +1038,17 @@ int main(int argc, char *argv[])
 		return 4;
 
 	if (argc <= 1) {
-		err = pass_fail_tests ();
+		err = stat ("./svcagt_goal_states.txt", &stat_buf);
+		if (err == 0)
+			err = systemd_tests ();
+		else
+			err = pass_fail_tests ();
 	} else {
 		arg = argv[1];
 		if (arg[0] == 's') {	
 			err = systemd_tests ();
+		} else if (arg[0] == 'p') {
+			err = pass_fail_tests ();
 		} else {
 			printf ("Invalid argument %s\n", arg);
 			return 4;
