@@ -862,23 +862,132 @@ int pass_fail_tests (void)
 	svc_agt_shutdown ();
 	return err;
 
-}
+} // end pass_fail_tests
 
-int main(int argc, char *argv[])
+int systemd_tests (void)
 {
-	int i, err;
-	char timestamp[20];
-	char test_name[100];
-	const char *name;
-	bool state;
-	long file_pos;
-	const char *arg;
-	const char *ptr;
+	int err;
 	service_info_t svc_info;
 	service_list_item_t *service_list;
 	int sajwt1_index = -1;
 	int sajwt2_index = -1;
 	int sajwt3_index = -1;
+	unsigned service_count;
+	unsigned long delay_secs = 15;
+
+#if 0
+	if (argc >= 3) {
+		delay_secs = strtoul (argv[2], NULL, 10);
+		if (delay_secs > 60)
+			delay_secs = 60;
+	}
+	if (delay_secs == 0)
+		delay_secs = 15;
+#endif
+	svcagt_suppress_init_states = false;
+	err = svc_agt_init (".");
+	if (err != 0)
+		return 0;
+	sajwt1_index = get_index ("sajwt1");
+	if (sajwt1_index == -1) {
+		printf ("sajwt1_index not found\n");
+		return 4;
+	}
+	sajwt2_index = get_index ("sajwt2");
+	if (sajwt2_index == -1) {
+		printf ("sajwt2_index not found\n");
+		return 4;
+	}
+	sajwt3_index = get_index ("sajwt3");
+	if (sajwt3_index == -1) {
+		printf ("sajwt3_index not found\n");
+		return 4;
+	}
+
+	service_count = svcagt_show_service_index ();
+	if (service_count > 0) {
+		err = svc_agt_set (sajwt1_index, running_str);
+		err = svc_agt_get (sajwt1_index, &svc_info, false);
+		if (err == 0) {
+			printf ("Get 1: %s goal: %s\n", svc_info.svc_name,	svc_info.goal_state);
+			if (strcmp (svc_info.goal_state, running_str) == 0)
+				printf ("SUCCESS: Get 1 %s\n", running_str);
+			else
+				printf ("FAIL: Get 1 should be %s\n", running_str);
+		} else {
+			printf ("FAIL: Get 1 (sajwt1) failed\n");
+		}
+		delay (delay_secs);
+		err = svc_agt_set (sajwt2_index, running_str);
+		err = svc_agt_get (sajwt2_index, &svc_info, false);
+		if (err == 0) {
+			printf ("Get 2: %s goal: %s\n", svc_info.svc_name,	svc_info.goal_state);
+			if (strcmp (svc_info.goal_state, running_str) == 0)
+				printf ("SUCCESS: Get 2 %s\n", running_str);
+			else
+				printf ("FAIL: Get 2 should be %s\n", running_str);
+		} else {
+			printf ("FAIL: Get 2 (sajwt2) failed\n");
+		}
+		err = svc_agt_set (sajwt1_index, stopped_str);
+		delay (delay_secs);
+		err = svc_agt_set (sajwt3_index, running_str);
+		err = svc_agt_set (sajwt2_index, stopped_str);
+		delay (delay_secs);
+		err = svc_agt_set (sajwt3_index, stopped_str);
+
+		err = svc_agt_get (sajwt1_index, &svc_info, false);
+		if (err == 0) {
+			printf ("Get 1: %s goal: %s\n", svc_info.svc_name,	svc_info.goal_state);
+			if (strcmp (svc_info.goal_state, stopped_str) == 0)
+				printf ("SUCCESS: Get 1 %s\n", stopped_str);
+			else
+				printf ("FAIL: Get 1 should be %s\n", stopped_str);
+		} else {
+			printf ("FAIL: Get 1 (sajwt1) failed\n");
+		}
+
+		err = svc_agt_get (sajwt2_index, &svc_info, false);
+		if (err == 0) {
+			printf ("Get 2: %s goal: %s\n", svc_info.svc_name,	svc_info.goal_state);
+			if (strcmp (svc_info.goal_state, stopped_str) == 0)
+				printf ("SUCCESS: Get 2 %s\n", stopped_str);
+			else
+				printf ("FAIL: Get 2 should be %s\n", stopped_str);
+		} else {
+			printf ("FAIL: Get 2 (sajwt2) failed\n");
+		}
+
+		err = svc_agt_get (sajwt3_index, &svc_info, false);
+		if (err == 0) {
+			printf ("Get 3: %s goal: %s\n", svc_info.svc_name,	svc_info.goal_state);
+			if (strcmp (svc_info.goal_state, stopped_str) == 0)
+				printf ("SUCCESS: Get 3 %s\n", stopped_str);
+			else
+				printf ("FAIL: Get 3 should be %s\n", stopped_str);
+		} else {
+			printf ("FAIL: Get 3 (sajwt3) failed\n");
+		}
+
+	}
+	svcagt_show_service_db ();
+	err = svc_agt_get_all (&service_list, false);
+	
+	if (err >= 0) {
+		svcagt_show_service_list (service_list, "Gets/Sets");
+		svc_agt_remove_service_list (service_list);
+	} else {
+		printf ("Error %d on svcagt_db_get_all\n", err);
+	}
+	svc_agt_shutdown ();
+	return 0;
+}
+
+int main(int argc, char *argv[])
+{
+	int err;
+	char timestamp[20];
+	const char *arg;
 
 	err = make_current_timestamp (timestamp);
 	if (err == 0)
@@ -891,125 +1000,18 @@ int main(int argc, char *argv[])
 	if (check_mock_systemctl_running() != 0)
 		return 4;
 
-	if (argc <= 1)
-		return pass_fail_tests ();
-
-	arg = argv[1];
-
-	if (arg[0] == 's') {	
-		unsigned service_count;
-		unsigned long delay_secs = 0;
-
-		if (argc >= 3) {
-			delay_secs = strtoul (argv[2], NULL, 10);
-			if (delay_secs > 60)
-				delay_secs = 60;
-		}
-		if (delay_secs == 0)
-			delay_secs = 15;
-		svcagt_suppress_init_states = false;
-		err = svc_agt_init (".");
-		if (err != 0)
-			return 0;
-		sajwt1_index = get_index ("sajwt1");
-		if (sajwt1_index == -1) {
-			printf ("sajwt1_index not found\n");
-			return 4;
-		}
-		sajwt2_index = get_index ("sajwt2");
-		if (sajwt2_index == -1) {
-			printf ("sajwt2_index not found\n");
-			return 4;
-		}
-		sajwt3_index = get_index ("sajwt3");
-		if (sajwt3_index == -1) {
-			printf ("sajwt3_index not found\n");
-			return 4;
-		}
-
-		service_count = svcagt_show_service_index ();
-		if (service_count > 0) {
-			err = svc_agt_set (sajwt1_index, running_str);
-			err = svc_agt_get (sajwt1_index, &svc_info, false);
-			if (err == 0) {
-				printf ("Get 1: %s goal: %s\n", svc_info.svc_name,	svc_info.goal_state);
-				if (strcmp (svc_info.goal_state, running_str) == 0)
-					printf ("SUCCESS: Get 1 %s\n", running_str);
-				else
-					printf ("FAIL: Get 1 should be %s\n", running_str);
-			} else {
-				printf ("FAIL: Get 1 (sajwt1) failed\n");
-			}
-			delay (delay_secs);
-			err = svc_agt_set (sajwt2_index, running_str);
-			err = svc_agt_get (sajwt2_index, &svc_info, false);
-			if (err == 0) {
-				printf ("Get 2: %s goal: %s\n", svc_info.svc_name,	svc_info.goal_state);
-				if (strcmp (svc_info.goal_state, running_str) == 0)
-					printf ("SUCCESS: Get 2 %s\n", running_str);
-				else
-					printf ("FAIL: Get 2 should be %s\n", running_str);
-			} else {
-				printf ("FAIL: Get 2 (sajwt2) failed\n");
-			}
-			err = svc_agt_set (sajwt1_index, stopped_str);
-			delay (delay_secs);
-			err = svc_agt_set (sajwt3_index, running_str);
-			err = svc_agt_set (sajwt2_index, stopped_str);
-			delay (delay_secs);
-			err = svc_agt_set (sajwt3_index, stopped_str);
-
-			err = svc_agt_get (sajwt1_index, &svc_info, false);
-			if (err == 0) {
-				printf ("Get 1: %s goal: %s\n", svc_info.svc_name,	svc_info.goal_state);
-				if (strcmp (svc_info.goal_state, stopped_str) == 0)
-					printf ("SUCCESS: Get 1 %s\n", stopped_str);
-				else
-					printf ("FAIL: Get 1 should be %s\n", stopped_str);
-			} else {
-				printf ("FAIL: Get 1 (sajwt1) failed\n");
-			}
-
-			err = svc_agt_get (sajwt2_index, &svc_info, false);
-			if (err == 0) {
-				printf ("Get 2: %s goal: %s\n", svc_info.svc_name,	svc_info.goal_state);
-				if (strcmp (svc_info.goal_state, stopped_str) == 0)
-					printf ("SUCCESS: Get 2 %s\n", stopped_str);
-				else
-					printf ("FAIL: Get 2 should be %s\n", stopped_str);
-			} else {
-				printf ("FAIL: Get 2 (sajwt2) failed\n");
-			}
-
-			err = svc_agt_get (sajwt3_index, &svc_info, false);
-			if (err == 0) {
-				printf ("Get 3: %s goal: %s\n", svc_info.svc_name,	svc_info.goal_state);
-				if (strcmp (svc_info.goal_state, stopped_str) == 0)
-					printf ("SUCCESS: Get 3 %s\n", stopped_str);
-				else
-					printf ("FAIL: Get 3 should be %s\n", stopped_str);
-			} else {
-				printf ("FAIL: Get 3 (sajwt3) failed\n");
-			}
-
-		}
-		svcagt_show_service_db ();
-		err = svc_agt_get_all (&service_list, false);
-		
-		if (err >= 0) {
-			svcagt_show_service_list (service_list, "Gets/Sets");
-			svc_agt_remove_service_list (service_list);
-		} else {
-			printf ("Error %d on svcagt_db_get_all\n", err);
-		}
-		svc_agt_shutdown ();
-
+	if (argc <= 1) {
+		err = pass_fail_tests ();
 	} else {
-
-		printf ("Invalid argument %s\n", arg);
+		arg = argv[1];
+		if (arg[0] == 's') {	
+			err = systemd_tests ();
+		} else {
+			printf ("Invalid argument %s\n", arg);
+			return 4;
+		}
 	}
 
-
-
 	printf ("Test done!\n");
+	return err;
 }
