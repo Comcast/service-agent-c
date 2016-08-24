@@ -1,4 +1,5 @@
-cp save_goal_states.txt svcagt_goal_states.txt
+echo Don\'t Run this in the background
+cp systemd_test_goal_states.txt svcagt_goal_states.txt
 rm -f $HOME/mock_systemctl_cmds.txt
 rm -f $HOME/mock_systemctl_responses.txt
 mkfifo $HOME/mock_systemctl_cmds.txt 

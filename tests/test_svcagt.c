@@ -16,6 +16,7 @@
 #include <svcagt_files.h>
 #include <svcagt_time.h>
 #include <utlist.h>
+#include <CUnit/Basic.h>
 
 extern int svcagt_db_init_index (void);
 extern void svcagt_show_service_db (void);
@@ -168,11 +169,10 @@ int load_goal_states_list (service_list_item_t **service_list)
 
 int vmake_svc_list (service_list_item_t **service_list, va_list ap)
 {
-	int err, index;
+	int index;
 	bool goal_state;
 	service_list_item_t *item_list = NULL;
 	service_list_item_t *item;
-	char svc_name_buf[128];
 	char *svc_name, *arg;
 
 	index = 0;
@@ -620,6 +620,7 @@ void delay (unsigned long delay_secs)
 int pass_fail_tests (void)
 {
 	int err;
+	bool tf_result;
 	const char *name;
 	bool state;
 	service_list_item_t *service_list, *list2;
@@ -633,14 +634,18 @@ int pass_fail_tests (void)
 
 	err = make_svc_list (&service_list, "1service1", "0sajwt1", "0winbind",
 		"1utlist", NULL);
+	CU_ASSERT (0 == err);
 	if (err == 0) {
 		svcagt_show_service_list (service_list, NULL);
 	}
 	err = make_svc_list (&list2, "1service1", "0sajwt1", "0winbind",
 		"1utlist", NULL);
+	CU_ASSERT (0 == err);
 	if (err == 0) {
 		svcagt_show_service_list (list2, NULL);
-		if (lists_equal (service_list, list2))
+		tf_result = lists_equal (service_list, list2);
+		CU_ASSERT (tf_result);
+		if (tf_result)
 			printf ("SUCCESS: Lists are equal\n");
 		else
 			printf ("FAIL: Lists are not equal\n");
@@ -648,32 +653,42 @@ int pass_fail_tests (void)
 		err = make_svc_list (&service_list, "1service1", "0sajwt1", "0winbind",
 			"1utlist", "1zzlist2", NULL);
 	}
+	CU_ASSERT (0 == err);
 	if (err == 0) {
-		if (lists_equal (service_list, list2))
+		tf_result = lists_equal (service_list, list2);
+		CU_ASSERT (!tf_result);
+		if (tf_result)
 			printf ("FAIL: Lists are equal, but should not be\n");
 		else
 			printf ("SUCCESS: lists are not equal and should not be\n");
 		err = list_equals (list2, "1service1", "0sajwt1", "0winbind",
 			"1utlist", NULL);
+		CU_ASSERT (1 == err);
 		printf ("List equals result %d (should be 1)\n", err);
 		err = list_equals (list2, "1service2", "0sajwt1", "0winbind",
 			"1utlist", NULL);
+		CU_ASSERT (0 == err);
 		printf ("List equals result %d (should be 0)\n", err);
 		DL_SORT (service_list, sort_cmp);
 		DL_SORT (list2, sort_cmp);
-		if (list1_in_list2 (list2, service_list))
+		tf_result = list1_in_list2 (list2, service_list);
+		CU_ASSERT (tf_result);
+		if (tf_result)
 			printf ("SUCCESS: list2 is contained in service list as it should be)\n");
 		else
 			printf ("FAIL: list2 not contained in service list\n");
 		err = list_contains (service_list, "0sajwt1", "1service1", "1utlist", NULL);
+		CU_ASSERT (1 == err);
 		printf ("List contains result %d (should be 1)\n", err);
 		err = list_contains (service_list, "0sajwt1", "1service1", "1utlist", "0zzlist2", NULL);
+		CU_ASSERT (0 == err);
 		printf ("List contains result %d (should be 0)\n", err);
 		remove_service_list (service_list);
 		remove_service_list (list2);
 	}
 
 	err = svc_agt_init ("nosuch");
+	CU_ASSERT (0 != err);
 	if (err == 0) {
 		printf ("FAIL: svc_agt_init of non-existent directory should fail\n");
 		svc_agt_shutdown ();
@@ -682,83 +697,86 @@ int pass_fail_tests (void)
 
 	svcagt_suppress_init_states = true;
 	err = svc_agt_init (".");
+	CU_ASSERT (0==err);
 	if (err != 0)
 		return 0;
 
 
-	#if 0
-	// not using namebuf
-		for (i=0; i<40; i++) {
-			sprintf (test_name, "TestFileNameWhichIsPrettyLong%d", i);
-			ptr = svcagt_add_name (test_name);
-			printf ("Added name is %s\n", ptr);
-		}
-	#endif
-	
-		svcagt_db_add ("service4");
-		svcagt_db_add ("service3");
-		svcagt_db_add ("service2");
-		svcagt_db_add ("service1");
-		svcagt_show_service_db ();
+	svcagt_db_add ("service4");
+	svcagt_db_add ("service3");
+	svcagt_db_add ("service2");
+	svcagt_db_add ("service1");
+	svcagt_show_service_db ();
 
-		svcagt_db_remove ("service1");
-		svcagt_db_remove ("nosuch");
-		svcagt_db_init_index ();
-		svcagt_show_service_index ();
+	svcagt_db_remove ("service1");
+	svcagt_db_remove ("nosuch");
+	svcagt_db_init_index ();
+	svcagt_show_service_index ();
 	
+	err = svcagt_db_get (0, &name, &state, true);
+	CU_ASSERT (0==err);
+	if (err == 0) {
+		printf ("SUCCESS: Get 0: %s goal: %d\n", name,	state);
+	} else {
+		printf ("FAIL: Get 0 (service2) failed\n");
+	}
+	err = svcagt_set_by_name ("service4", true, 22L);
+	CU_ASSERT (0==err);
+	err = svcagt_db_get (2, &name, &state, true);
+	CU_ASSERT (0==err);
+	CU_ASSERT (state == true);
+	if (err == 0) {
+		printf ("SUCCESS: Get 2: %s goal: %d\n", name,	state);
+	} else {
+		printf ("FAIL: Get 2 (service4) failed\n");
+	}
+	
+	err = svcagt_db_get (3, &name, &state, true);
+	CU_ASSERT (0 != err);
+	if (err == 0) {
+		printf ("FAIL: Should not get 3: %s goal: %d\n", name,	state);
+	} else {
+		printf ("SUCCESS: Get 3 (service1) failed (expected)\n");
+	}
+
+	err = svcagt_db_set (0, true);
+	if (err == 0)
 		err = svcagt_db_get (0, &name, &state, true);
-		if (err == 0) {
-			printf ("SUCCESS: Get 0: %s goal: %d\n", name,	state);
-		} else {
-			printf ("FAIL: Get 0 (service2) failed\n");
-		}
-		err = svcagt_set_by_name ("service4", true, 22L);
-		err = svcagt_db_get (2, &name, &state, true);
-		if (err == 0) {
-			printf ("SUCCESS: Get 2: %s goal: %d\n", name,	state);
-		} else {
-			printf ("FAIL: Get 2 (service4) failed\n");
-		}
-	
-		err = svcagt_db_get (3, &name, &state, true);
-		if (err == 0) {
-			printf ("FAIL: Should not get 3: %s goal: %d\n", name,	state);
-		} else {
-			printf ("SUCCESS: Get 3 (service1) failed (expected)\n");
-		}
-
-		err = svcagt_db_set (0, true);
-		if (err == 0)
-			err = svcagt_db_get (0, &name, &state, true);
-		if (err == 0) {
-			printf ("Set/Get 0: %s goal: %d\n", name,	state);
-			if (state)
-				printf ("SUCCESS: Set/Get 0 (service2) true\n");
-			else
-				printf ("FAIL: Set/Get 0 (service2) should be true\n"); 
-		} else {
-			printf ("FAIL: Set/Get 0 (service2) failed\n");
-		}
+	CU_ASSERT (0==err);
+	CU_ASSERT (state == true);
+	if (err == 0) {
+		printf ("Set/Get 0: %s goal: %d\n", name,	state);
+		if (state)
+			printf ("SUCCESS: Set/Get 0 (service2) true\n");
+		else
+			printf ("FAIL: Set/Get 0 (service2) should be true\n"); 
+	} else {
+		printf ("FAIL: Set/Get 0 (service2) failed\n");
+	}
 			
-		err = svcagt_db_set (1, false);
-		if (err == 0)
-			err = svcagt_db_get (1, &name, &state, true);
-		if (err == 0) {
-			printf ("Set/Get 1: %s goal: %d\n", name,	state);
-			if (!state)
-				printf ("SUCCESS: Set/Get 1 (service3) false\n");
-			else
-				printf ("FAIL: Set/Get 1 (service3) should be false\n"); 
-		} else {
-			printf ("FAIL: Set/Get 1 failed\n");
-		}
+	err = svcagt_db_set (1, false);
+	if (err == 0)
+		err = svcagt_db_get (1, &name, &state, true);
+	CU_ASSERT (0==err);
+	CU_ASSERT (state == false);
+	if (err == 0) {
+		printf ("Set/Get 1: %s goal: %d\n", name,	state);
+		if (!state)
+			printf ("SUCCESS: Set/Get 1 (service3) false\n");
+		else
+			printf ("FAIL: Set/Get 1 (service3) should be false\n"); 
+	} else {
+		printf ("FAIL: Set/Get 1 failed\n");
+	}
 
-		err = get_all_eq_test (true, "1service2", "0service3", "1service4", NULL);
-		svcagt_show_service_db ();
+	err = get_all_eq_test (true, "1service2", "0service3", "1service4", NULL);
+	CU_ASSERT (0==err);
+	svcagt_show_service_db ();
 
 
 	if (err == 0) {
 		err = svc_agt_get_all (&service_list, true);
+		CU_ASSERT (err >= 0);
 		if (err >= 0) {
 			svcagt_show_service_list (service_list, "Gets/Sets");
 			svc_agt_remove_service_list (service_list);
@@ -769,6 +787,7 @@ int pass_fail_tests (void)
 	svc_agt_shutdown ();
 
 	err = remove ("./svcagt_goal_states.txt");
+	CU_ASSERT_FATAL ((err == 0) || (err == ENOENT));
 	if ((err != 0) && (err != ENOENT)) {
 		dbg_err (errno, "Error removing goal states file\n");
 		return -1;
@@ -778,6 +797,7 @@ int pass_fail_tests (void)
 	set_test_services ("./mock_systemd_libs/etc", "./mock_systemd_libs/usr");
 
 	err = svc_agt_init (".");
+	CU_ASSERT (0==err);
 	if (err == 0)
 		err = show_goal_states_file ();
 
@@ -788,75 +808,109 @@ int pass_fail_tests (void)
 	sheepdog_index = get_index ("sheepdog");
 	sm_client_index = get_index ("sm-client");
 
+	CU_ASSERT_FATAL ((sendmail_index >= 0) && (winbind_index >= 0) 
+		&& (upower_index >= 0) && (sshd_index >= 0)
+		&& (sheepdog_index >= 0) && (sm_client_index >= 0));
+
 	if ((err == 0) && (sendmail_index >= 0)) {
 		err = svc_agt_set ((unsigned)sendmail_index, svcagt_goal_state_str(true));
+		CU_ASSERT (0==err);
 		if (err == 0)
 			err = goal_states_file_eq_test (true, "1sendmail", NULL);
+		CU_ASSERT (0==err);
 		if (err == 0)
 			err = get_test ((unsigned)sendmail_index, "sendmail", true);
+		CU_ASSERT (0==err);
 		if (err == 0)
 			err = get_all_contains_test (true, "1sendmail", NULL);
+		CU_ASSERT (0==err);
 		svcagt_show_service_db ();
 	}
 	if ((err == 0) && (winbind_index >= 0)) {
 		err = svc_agt_set ((unsigned)winbind_index, svcagt_goal_state_str(true));
+		CU_ASSERT (0==err);
 		if (err == 0)
 			err = goal_states_file_contains_dups_test (false);
+		CU_ASSERT (0==err);
 		if (err == 0)
 			err = goal_states_file_eq_test (true, "1sendmail", "1winbind", NULL);
+		CU_ASSERT (0==err);
 		if (err == 0)
 			err = get_test ((unsigned)winbind_index, "winbind", true);
+		CU_ASSERT (0==err);
 		if (err == 0)
 			err = svc_agt_set ((unsigned)winbind_index, svcagt_goal_state_str(true));
+		CU_ASSERT (0==err);
 		if (err == 0)
 			err = goal_states_file_contains_dups_test (false);
+		CU_ASSERT (0==err);
 		if (err == 0)
 			err = goal_states_file_eq_test (true, "1sendmail", "1winbind", NULL);
+		CU_ASSERT (0==err);
 	}
 	if ((err == 0) && (sshd_index >= 0)) {
 		err = svc_agt_set ((unsigned)sshd_index, svcagt_goal_state_str(true));
+		CU_ASSERT (0==err);
 		if (err == 0)
 			err = goal_states_file_contains_dups_test (false);
+		CU_ASSERT (0==err);
 		if (err == 0)
 			err = goal_states_file_eq_test (true, "1sendmail", "1winbind", "1sshd", NULL);
+		CU_ASSERT (0==err);
 		if (err == 0)
 			err = get_all_contains_test (true, "1sendmail", "1sshd", "1winbind", NULL);
+		CU_ASSERT (0==err);
 		if (err == 0)
 			err = get_test ((unsigned)sshd_index, "sshd", true);
+		CU_ASSERT (0==err);
 		if (err == 0)
 			err = goal_states_file_eq_test (false, "1sendmail", "1winbind", "0sshd", NULL);
+		CU_ASSERT (0==err);
 		if (err == 0)
 			err = goal_states_file_eq_test (false, "1sendmail", "1winbind", NULL);
+		CU_ASSERT (0==err);
 	}
 	if ((err == 0) && (sm_client_index >= 0)) {
 		err = svc_agt_set ((unsigned)sm_client_index, svcagt_goal_state_str(true));
+		CU_ASSERT (0==err);
 		if (err == 0)
 			err = goal_states_file_contains_dups_test (false);
+		CU_ASSERT (0==err);
 		if (err == 0)
 			err = goal_states_file_eq_test 
 				(true, "1sendmail", "1winbind", "1sshd", "1sm-client", NULL);
+		CU_ASSERT (0==err);
 		if (err == 0)
 			err = goal_states_file_contains_test
 				(true, "1sendmail", "1winbind", "1sshd", NULL);
+		CU_ASSERT (0==err);
 		if (err == 0)
 			err = goal_states_file_contains_test
 				(false, "1sendmail", "1winbindd", "1sshd", NULL);
+		CU_ASSERT (0==err);
 		if (err == 0)
 			err = goal_states_file_contains_test
 				(false, "1sendmail", "1winbind", "1sshd", "1upower", NULL);
+		CU_ASSERT (0==err);
 		if (err == 0)
 			err = svc_agt_set ((unsigned)sm_client_index, svcagt_goal_state_str(true));
+		CU_ASSERT (0==err);
 		if (err == 0)
 			err = goal_states_file_contains_dups_test (false);
+		CU_ASSERT (0==err);
 		if (err == 0)
 			err = svc_agt_set ((unsigned)sm_client_index, svcagt_goal_state_str(false));
+		CU_ASSERT (0==err);
 		if (err == 0)
 			err = goal_states_file_eq_test 
 				(true, "1sendmail", "1winbind", "1sshd", "0sm-client", NULL);
+		CU_ASSERT (0==err);
 		if (err == 0)
 			err = get_all_contains_test (true, "1sendmail", "0sm-client", "1sshd", "1winbind", NULL);
+		CU_ASSERT (0==err);
 		if (err == 0)
 			err = get_test ((unsigned)sm_client_index, "sm-client", false);
+		CU_ASSERT (0==err);
 	}
 	err = show_goal_states_file ();
 				
@@ -867,7 +921,7 @@ int pass_fail_tests (void)
 
 int systemd_tests (void)
 {
-	int err;
+	int err, result;
 	service_info_t svc_info;
 	service_list_item_t *service_list;
 	int sajwt1_index = -1;
@@ -887,31 +941,40 @@ int systemd_tests (void)
 #endif
 	svcagt_suppress_init_states = false;
 	err = svc_agt_init (".");
+	CU_ASSERT (0==err);
 	if (err != 0)
 		return 0;
 	sajwt1_index = get_index ("sajwt1");
+	CU_ASSERT (sajwt1_index >=0);
 	if (sajwt1_index == -1) {
 		printf ("sajwt1_index not found\n");
 		return 4;
 	}
 	sajwt2_index = get_index ("sajwt2");
+	CU_ASSERT (sajwt2_index >=0);
 	if (sajwt2_index == -1) {
 		printf ("sajwt2_index not found\n");
 		return 4;
 	}
 	sajwt3_index = get_index ("sajwt3");
+	CU_ASSERT (sajwt3_index >=0);
 	if (sajwt3_index == -1) {
 		printf ("sajwt3_index not found\n");
 		return 4;
 	}
 
 	service_count = svcagt_show_service_index ();
+	CU_ASSERT (service_count > 0);
 	if (service_count > 0) {
 		err = svc_agt_set (sajwt1_index, running_str);
+		CU_ASSERT (0==err);
 		err = svc_agt_get (sajwt1_index, &svc_info, false);
+		CU_ASSERT (0==err);
 		if (err == 0) {
 			printf ("Get 1: %s goal: %s\n", svc_info.svc_name,	svc_info.goal_state);
-			if (strcmp (svc_info.goal_state, running_str) == 0)
+			result = strcmp (svc_info.goal_state, running_str);
+			CU_ASSERT (0 == result);
+			if (result == 0)
 				printf ("SUCCESS: Get 1 %s\n", running_str);
 			else
 				printf ("FAIL: Get 1 should be %s\n", running_str);
@@ -920,6 +983,7 @@ int systemd_tests (void)
 		}
 		if (err == 0) {
 			err = svcagt_get_service_state ("sajwt1");
+			CU_ASSERT (1 == err);
 			if (err == 1)
 				printf ("SUCCESS: sajwt1 service started\n");
 			else
@@ -927,10 +991,14 @@ int systemd_tests (void)
 		}
 		delay (delay_secs);
 		err = svc_agt_set (sajwt2_index, running_str);
+		CU_ASSERT (0==err);
 		err = svc_agt_get (sajwt2_index, &svc_info, false);
+		CU_ASSERT (0==err);
 		if (err == 0) {
 			printf ("Get 2: %s goal: %s\n", svc_info.svc_name,	svc_info.goal_state);
-			if (strcmp (svc_info.goal_state, running_str) == 0)
+			result = strcmp (svc_info.goal_state, running_str);
+			CU_ASSERT (0 == result);
+			if (result == 0)
 				printf ("SUCCESS: Get 2 %s\n", running_str);
 			else
 				printf ("FAIL: Get 2 should be %s\n", running_str);
@@ -939,22 +1007,30 @@ int systemd_tests (void)
 		}
 		if (err == 0) {
 			err = svcagt_get_service_state ("sajwt2");
+			CU_ASSERT (1 == err);
 			if (err == 1)
 				printf ("SUCCESS: sajwt2 service started\n");
 			else
 				printf ("FAIL: sajwt2 service state %d\n", err);
 		}
 		err = svc_agt_set (sajwt1_index, stopped_str);
+		CU_ASSERT (0==err);
 		delay (delay_secs);
 		err = svc_agt_set (sajwt3_index, running_str);
+		CU_ASSERT (0==err);
 		err = svc_agt_set (sajwt2_index, stopped_str);
+		CU_ASSERT (0==err);
 		delay (delay_secs);
 		err = svc_agt_set (sajwt3_index, stopped_str);
+		CU_ASSERT (0==err);
 
 		err = svc_agt_get (sajwt1_index, &svc_info, false);
+		CU_ASSERT (0==err);
 		if (err == 0) {
 			printf ("Get 1: %s goal: %s\n", svc_info.svc_name,	svc_info.goal_state);
-			if (strcmp (svc_info.goal_state, stopped_str) == 0)
+			result = strcmp (svc_info.goal_state, stopped_str);
+			CU_ASSERT (0==result);
+			if (result == 0)
 				printf ("SUCCESS: Get 1 %s\n", stopped_str);
 			else
 				printf ("FAIL: Get 1 should be %s\n", stopped_str);
@@ -963,6 +1039,7 @@ int systemd_tests (void)
 		}
 		if (err == 0) {
 			err = svcagt_get_service_state ("sajwt1");
+			CU_ASSERT (0==err);
 			if (err == 0)
 				printf ("SUCCESS: sajwt1 service stopped\n");
 			else
@@ -972,7 +1049,9 @@ int systemd_tests (void)
 		err = svc_agt_get (sajwt2_index, &svc_info, false);
 		if (err == 0) {
 			printf ("Get 2: %s goal: %s\n", svc_info.svc_name,	svc_info.goal_state);
-			if (strcmp (svc_info.goal_state, stopped_str) == 0)
+			result = strcmp (svc_info.goal_state, stopped_str);
+			CU_ASSERT (0==result);
+			if (result == 0)
 				printf ("SUCCESS: Get 2 %s\n", stopped_str);
 			else
 				printf ("FAIL: Get 2 should be %s\n", stopped_str);
@@ -981,6 +1060,7 @@ int systemd_tests (void)
 		}
 		if (err == 0) {
 			err = svcagt_get_service_state ("sajwt2");
+			CU_ASSERT (0==err);
 			if (err == 0)
 				printf ("SUCCESS: sajwt2 service stopped\n");
 			else
@@ -990,7 +1070,9 @@ int systemd_tests (void)
 		err = svc_agt_get (sajwt3_index, &svc_info, false);
 		if (err == 0) {
 			printf ("Get 3: %s goal: %s\n", svc_info.svc_name,	svc_info.goal_state);
-			if (strcmp (svc_info.goal_state, stopped_str) == 0)
+			result = strcmp (svc_info.goal_state, stopped_str);
+			CU_ASSERT (0==result);
+			if (result == 0)
 				printf ("SUCCESS: Get 3 %s\n", stopped_str);
 			else
 				printf ("FAIL: Get 3 should be %s\n", stopped_str);
@@ -999,6 +1081,7 @@ int systemd_tests (void)
 		}
 		if (err == 0) {
 			err = svcagt_get_service_state ("sajwt3");
+			CU_ASSERT (0==err);
 			if (err == 0)
 				printf ("SUCCESS: sajwt3 service stopped\n");
 			else
@@ -1008,7 +1091,7 @@ int systemd_tests (void)
 	}
 	svcagt_show_service_db ();
 	err = svc_agt_get_all (&service_list, false);
-	
+	CU_ASSERT (err >= 0);	
 	if (err >= 0) {
 		svcagt_show_service_list (service_list, "Gets/Sets");
 		svc_agt_remove_service_list (service_list);
@@ -1019,11 +1102,11 @@ int systemd_tests (void)
 	return 0;
 }
 
-int main(int argc, char *argv[])
+//int main(int argc, char *argv[])
+void svc_agt_test (void)
 {
 	int err;
 	char timestamp[20];
-	const char *arg;
 	struct stat stat_buf;
 
 	err = make_current_timestamp (timestamp);
@@ -1034,27 +1117,46 @@ int main(int argc, char *argv[])
 
 	svcagt_systemctl_cmd = "./mock_systemctl";
 
-	if (check_mock_systemctl_running() != 0)
-		return 4;
+	CU_ASSERT_FATAL (0 == check_mock_systemctl_running());
 
-	if (argc <= 1) {
-		err = stat ("./svcagt_goal_states.txt", &stat_buf);
-		if (err == 0)
-			err = systemd_tests ();
-		else
-			err = pass_fail_tests ();
-	} else {
-		arg = argv[1];
-		if (arg[0] == 's') {	
-			err = systemd_tests ();
-		} else if (arg[0] == 'p') {
-			err = pass_fail_tests ();
-		} else {
-			printf ("Invalid argument %s\n", arg);
-			return 4;
-		}
-	}
+	err = stat ("./svcagt_goal_states.txt", &stat_buf);
+	if (err == 0)
+		systemd_tests ();
+	else
+		pass_fail_tests ();
+}
 
-	printf ("Test done!\n");
-	return err;
+void add_suites( CU_pSuite *suite )
+{
+    *suite = CU_add_suite( "service-agent-c tests", NULL, NULL );
+    CU_add_test( *suite, "Service Agent Test", svc_agt_test );
+}
+
+/*----------------------------------------------------------------------------*/
+/*                             External Functions                             */
+/*----------------------------------------------------------------------------*/
+int main( void )
+{
+    unsigned rv = 1;
+    CU_pSuite suite = NULL;
+
+    if( CUE_SUCCESS == CU_initialize_registry() ) {
+        add_suites( &suite );
+
+        if( NULL != suite ) {
+            CU_basic_set_mode( CU_BRM_VERBOSE );
+            CU_basic_run_tests();
+            printf( "\n" );
+            CU_basic_show_failures( CU_get_failure_list() );
+            printf( "\n\n" );
+            rv = CU_get_number_of_tests_failed();
+        }
+
+        CU_cleanup_registry();
+    }
+
+    if( 0 != rv ) {
+        return 1;
+    }
+    return 0;
 }
