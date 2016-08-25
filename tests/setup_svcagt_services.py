@@ -1,6 +1,6 @@
 #  setup_svcagt_services.py
 
-import sys, os, shutil
+import sys, os, shutil, subprocess
 
 #--------------------------------------------------------------
 def copy_files (a, b):
@@ -135,13 +135,28 @@ if os.path.exists (etc_lib):
   copy_files (service_fname(1), etc_lib)
   copy_files (service_fname(2), etc_lib)
 
+def gcc (name):
+  src_name = name + ".c"
+  cmd = ["gcc", "-o", name, "-lm", src_name]
+  print "Compiling", src_name
+  rtn = subprocess.call (cmd)
+  if rtn != 0:
+    print "Error on compile of", name
+  return rtn
+
+rtn = gcc ("mock_systemctl")
+if rtn != 0:
+  sys.exit(4)
+
+rtn = gcc ("svcagt_test_service")
+if rtn != 0:
+  sys.exit(4)
+
 print
 print "To complete the setup, you should:"
-print " 1) gcc -o mock_systemctl -lm mock_systemctl.c"
-print " 2) gcc -o svcagt_test_service -lm svcagt_test_service.c"
-print " 3) sudo cp sajwt1.service /etc/systemd/system"
-print " 4) sudo cp sajwt2.service /etc/systemd/system"
-print " 5) sudo cp sajwt3.service /etc/systemd/system"
+print " 1) sudo cp sajwt1.service /etc/systemd/system"
+print " 2) sudo cp sajwt2.service /etc/systemd/system"
+print " 3) sudo cp sajwt3.service /etc/systemd/system"
 print
 print "Done"
 
