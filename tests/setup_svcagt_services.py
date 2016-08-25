@@ -137,10 +137,11 @@ if os.path.exists (etc_lib):
 
 print
 print "To complete the setup, you should:"
-print " 1) gcc -o svcagt_test_service -lm svcagt_test_service.c"
-print " 2) sudo cp sajwt1.service /etc/systemd/system"
-print " 3) sudo cp sajwt2.service /etc/systemd/system"
-print " 4) sudo cp sajwt3.service /etc/systemd/system"
+print " 1) gcc -o mock_systemctl -lm mock_systemctl.c"
+print " 2) gcc -o svcagt_test_service -lm svcagt_test_service.c"
+print " 3) sudo cp sajwt1.service /etc/systemd/system"
+print " 4) sudo cp sajwt2.service /etc/systemd/system"
+print " 5) sudo cp sajwt3.service /etc/systemd/system"
 print
 print "Done"
 
