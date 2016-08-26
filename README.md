@@ -33,9 +33,6 @@ invoking systemctl.
 
 1. cd .../service-agent-c/tests
 2. python setup_svcagt_services.py
-3. sudo cp sajwt1.service /etc/systemd/system
-4. sudo cp sajwt2.service /etc/systemd/system
-5. sudo cp sajwt3.service /etc/systemd/system
 
 The setup creates a mock_systemctl. It also creates and installs
 three test services for use with the systemd tests.

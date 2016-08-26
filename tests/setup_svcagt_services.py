@@ -124,10 +124,33 @@ def update_service_file (index):
   print "%d lines written to file %s" % (count, service_fname(index))
 #end def update_service_file
 
+def create_install_file ():
+  fout = None
+  fname = "install_test_services.sh"
+  try:
+    fout = open (fname, "w")
+  except  StandardError, e:
+    print "Unable to open %s" % fname
+    print e
+    sys.exit(4)
+
+  def write_line(index):
+    fout.write ("cp -v %s/%s /etc/systemd/system\n" \
+      % (current_dir, service_fname(index)) )
+
+  write_line (0)
+  write_line (1)
+  write_line (2)
+
+  fout.close()  
+#end def create_install_file
+
+
 update_test_service_c ()
 update_service_file (0)
 update_service_file (1)
 update_service_file (2)
+create_install_file ()
 
 etc_lib = "mock_systemd_libs/etc"
 if os.path.exists (etc_lib):
@@ -152,11 +175,11 @@ rtn = gcc ("svcagt_test_service")
 if rtn != 0:
   sys.exit(4)
 
-print
-print "To complete the setup, you should:"
-print " 1) sudo cp sajwt1.service /etc/systemd/system"
-print " 2) sudo cp sajwt2.service /etc/systemd/system"
-print " 3) sudo cp sajwt3.service /etc/systemd/system"
+rtn = subprocess.call (["sudo", "bash", "install_test_services.sh"])
+if rtn != 0:
+  print "sudo install_test_services failed"
+  sys.exit(4)
+
 print
 print "Done"
 
