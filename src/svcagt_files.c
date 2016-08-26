@@ -56,7 +56,7 @@ int tell_file_pos (long *pos)
 
 int svcagt_files_open (const char *svcagt_directory)
 {
-	int err, fd;
+	int fd;
 
 	sprintf (exclude_fname, "%s/svcagt_exclude_services.txt", svcagt_directory);
 	sprintf (goal_states_fname, "%s/svcagt_goal_states.txt", svcagt_directory);

@@ -17,7 +17,7 @@
 #include "svcagt_startup_states.h"
 #include <uthash.h>
 #include <utlist.h>
-#include "pthread.h"
+#include <pthread.h>
 
 pthread_mutex_t svcagt_mutex=PTHREAD_MUTEX_INITIALIZER;
 
@@ -182,8 +182,6 @@ int svcagt_db_add (const char *name)
 // called during initialization
 int svcagt_db_remove (const char *name)
 {
-	size_t name_len;
-
 	struct my_service_struct *db_node = NULL;
 	if (service_index != NULL)
 		return EPERM;
@@ -232,7 +230,6 @@ int svcagt_db_get (unsigned index, const char **name, bool *state, bool db_query
 // called during initialization
 int svcagt_set_by_name (const char *name, bool state, long state_file_pos)
 {
-	int err;
 	struct my_service_struct *db_node;
 
 	HASH_FIND_STR (service_db, name, db_node);
@@ -250,7 +247,6 @@ int svcagt_set_by_name (const char *name, bool state, long state_file_pos)
 
 int svcagt_get_index (const char *name, unsigned *index, bool *state)
 {
-	int err;
 	unsigned i;
 	struct my_service_struct *db_node;
 
@@ -297,7 +293,7 @@ int svcagt_db_set (unsigned index, bool state)
 
 int svcagt_db_get_all (service_list_item_t **service_list, bool db_query)
 {
-	int i, err;
+	unsigned i;
 	struct my_service_struct *db_node;
 	service_list_item_t *item_array;
 	service_list_item_t *item_list = NULL;
@@ -347,7 +343,7 @@ void svcagt_show_service_db (void)
 // For testing
 unsigned svcagt_show_service_index (void)
 {
-	int i;
+	unsigned i;
 	struct my_service_struct *s;
 	printf ("Service DB Index\n");
 	for (i=0; i<service_count; i++) {
