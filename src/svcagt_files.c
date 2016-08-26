@@ -56,7 +56,7 @@ int tell_file_pos (long *pos)
 
 int svcagt_files_open (const char *svcagt_directory)
 {
-	int err, fd;
+	int fd;
 
 	sprintf (exclude_fname, "%s/svcagt_exclude_services.txt", svcagt_directory);
 	sprintf (goal_states_fname, "%s/svcagt_goal_states.txt", svcagt_directory);
@@ -92,7 +92,7 @@ int svcagt_goal_state_file_rewind (void)
 }
 	
 
-int svcagt_files_close (void)
+void svcagt_files_close (void)
 {
 	if (NULL != exclude_fp)
 		fclose (exclude_fp);

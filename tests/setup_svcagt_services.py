@@ -47,6 +47,8 @@ for fname in required_files:
   copy_files (fname, fname+".tmp")
 
 def update_test_service_c ():
+# Updates the test service program, which will run as root,
+# so that it knows the current user's home directory.
   fin = None
   fout = None
   tmp_name = test_service_c_fname + ".tmp"
@@ -86,6 +88,8 @@ def update_test_service_c ():
 #end def update_test_service_c
 
 def update_service_file (index):
+# updates the service files, which will be executed in root, so that
+# they point into the current directory.
   fin = None
   fout = None
   tmp_name = service_fname(index) + ".tmp"
@@ -125,6 +129,9 @@ def update_service_file (index):
 #end def update_service_file
 
 def create_install_file ():
+# creates an install shell script, which will be executed as root,
+# and must copy the service files from the current directory
+# into /etc/systemd/system
   fout = None
   fname = "install_test_services.sh"
   try:
@@ -152,11 +159,11 @@ update_service_file (1)
 update_service_file (2)
 create_install_file ()
 
-etc_lib = "mock_systemd_libs/etc"
-if os.path.exists (etc_lib):
-  copy_files (service_fname(0), etc_lib)
-  copy_files (service_fname(1), etc_lib)
-  copy_files (service_fname(2), etc_lib)
+mock_etc_lib = "mock_systemd_libs/etc"
+if os.path.exists (mock_etc_lib):
+  copy_files (service_fname(0), mock_etc_lib)
+  copy_files (service_fname(1), mock_etc_lib)
+  copy_files (service_fname(2), mock_etc_lib)
 
 def gcc (name):
   src_name = name + ".c"

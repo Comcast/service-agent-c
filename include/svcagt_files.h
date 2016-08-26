@@ -28,7 +28,7 @@ int svcagt_files_open (const char *svcagt_directory);
  * Close all files.
  *
  */
-int svcagt_files_close (void);
+void svcagt_files_close (void);
 
 /**
  * Read one service name from the exclude file
