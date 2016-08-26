@@ -1,4 +1,14 @@
-#  setup_svcagt_services.py
+#  setup_svcagt_services.py  
+#
+#  1. Updates svcagt_test_service.c so that it uses the 
+#     current user's home directory
+#  2. Updates the three test service files so that they
+#     point into the current directory
+#  3. Compiles mock_systemctl.c
+#  4. Compiles svcagt_test_service.c
+#  5. Installs the three test service files in /etc/systemd/system
+#
+#
 
 import sys, os, shutil, subprocess
 
