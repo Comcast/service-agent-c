@@ -27,7 +27,8 @@ static char goal_states_fname[FILENAME_BUFLEN];
 int seek_file_pos (long pos)
 {
 	if (fseek (goal_states_fp, pos, SEEK_SET) < 0) {
-		log_errno (errno, "Error seeking pos %ld in file %s: ", pos, goal_states_fname);
+		svcagt_log (LEVEL_ERROR,"Error seeking pos %ld in file %s: ,errno:%d(%s)\n", pos, goal_states_fname, errno, strerror(errno));
+		
 		return errno;
 	}
 	return 0;
@@ -36,7 +37,7 @@ int seek_file_pos (long pos)
 int seek_file_end (void)
 {
 	if (fseek (goal_states_fp, 0, SEEK_END) < 0) {
-		log_errno (errno, "Error seeking end of file %s: ", goal_states_fname);
+		svcagt_log (LEVEL_ERROR,"Error seeking end of file %s: ,errno:%d(%s)\n", goal_states_fname, errno, strerror(errno));
 		return errno;
 	}
 	return 0;
@@ -46,7 +47,7 @@ int tell_file_pos (long *pos)
 {
 	long p = ftell (goal_states_fp);
 	if (p < 0) {
-		log_errno (errno, "Error getting file pos of goal states file:");
+		svcagt_log (LEVEL_ERROR,"Error getting file pos of goal states file:errno:%d(%s)\n", errno, strerror(errno));
 		return errno;
 	}
 	*pos = p;
@@ -63,23 +64,25 @@ int svcagt_files_open (const char *svcagt_directory)
 	// Open the exclude file for read only
 	exclude_fp = fopen (exclude_fname, "r");
 	if (NULL == exclude_fp)
-		log_dbg ("File %s not opened\n", exclude_fname);
+		
+		svcagt_log (LEVEL_DEBUG, "File %s not opened\n", exclude_fname);
 	else
-		log_info ("Opened file %s\n", exclude_fname);
+		svcagt_log (LEVEL_INFO, "Opened file %s\n", exclude_fname);
 
 
 	// Open the goal states file for read/write/append. Create if it doesn't exist.
 	fd = open (goal_states_fname, O_CREAT | O_RDWR | O_SYNC, 0666);
 	if (fd < 0) {
-		log_errno (errno, "Error(1) opening file %s: ", goal_states_fname);
+		svcagt_log (LEVEL_ERROR,"Error(1) opening file %s: ,errno:%d(%s)\n", goal_states_fname, errno, strerror(errno));
 		return errno;
 	}
 	goal_states_fp = fdopen (fd, "w+");
 	if (goal_states_fp == NULL) {
-		log_errno (errno, "Error(2) opening file %s: ", goal_states_fname);
+		svcagt_log (LEVEL_ERROR, "Error(2) opening file %s:errno:%d(%s)\n", goal_states_fname, errno, strerror(errno));
 		return errno;
 	}
-	log_info ("Opened file %s\n", goal_states_fname);
+	svcagt_log (LEVEL_INFO, "Opened file %s\n", goal_states_fname);
+
 	return seek_file_pos (0);
 }
 
@@ -127,7 +130,7 @@ int svcagt_goal_state_file_read (char *svc_name, bool *state, long *file_pos)
 		return 1;
 	}
 	if (nfields != 2) {
-		log_error ("Format error in goal states file\n");
+		svcagt_log (LEVEL_ERROR,"Format error in goal states file\n");
 		return -1;
 	}
 	if (state_ == (int)true)
@@ -135,7 +138,7 @@ int svcagt_goal_state_file_read (char *svc_name, bool *state, long *file_pos)
 	else if (state_ == (int)false)
 		*state = false;
 	else {
-		log_error ("Invalid state %d in goal_states file\n", state_);
+		svcagt_log (LEVEL_ERROR,"Invalid state %d in goal_states file\n", state_);
 		return -1;
 	}
 	return 0;
@@ -150,7 +153,7 @@ int svcagt_goal_state_file_append (const char *svc_name, bool state, long *file_
 		err = tell_file_pos (file_pos);
 	if (err != 0)
 		return err;
-	log_dbg ("Appending %s, pos %ld to goal state file\n", svc_name, *file_pos);
+	svcagt_log (LEVEL_DEBUG,"Appending %s, pos %ld to goal state file\n", svc_name, *file_pos);
 	fprintf (goal_states_fp, "%d %s\n", (int)state, svc_name);
 	return 0;
 }

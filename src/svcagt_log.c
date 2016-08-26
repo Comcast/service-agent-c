@@ -35,6 +35,9 @@ int current_level = LEVEL_DEBUG;
 int current_level = LEVEL_INFO;
 #endif
 
+/* log handling */
+svcagtLogHandler     log_handler =NULL;
+
 pthread_mutex_t log_mutex=PTHREAD_MUTEX_INITIALIZER;
 
 #ifdef TEST_ENVIRONMENT
@@ -356,3 +359,81 @@ void log_errno (int err, const char *fmt, ...)
 {
 	BUF_PRINT (LEVEL_ERROR, fmt, err);
 }
+
+
+
+/**
+ * @brief Allows to define a log handler that will receive all logs
+ * produced under the provided content.
+ *
+ * @param handler The handler to be called for each log to be
+ * notified. Passing in NULL is allowed to remove any previously
+ * configured handler.
+ *
+ */
+void  svcagt_log_set_handler (svcagtLogHandler handler)
+{
+        log_handler   = handler;
+        return;
+}
+
+
+void svcagt_log (  int level, const char *msg, ...)
+{
+	char *pTempChar = NULL;
+	int ret = 0;
+	
+	va_list arg_ptr; 
+	
+	pTempChar = (char *)malloc(4096);	
+	if(pTempChar)
+	{
+		va_start(arg_ptr, msg); 
+		ret = vsnprintf(pTempChar, 4096, msg, arg_ptr);
+		if(ret < 0)
+		{
+			perror(pTempChar);
+		}
+		
+		va_end(arg_ptr);
+		
+		
+		if(log_handler != NULL)
+		{
+			log_handler (level, pTempChar);
+		
+			if(pTempChar !=NULL)
+			{
+				free(pTempChar);
+				pTempChar = NULL;
+			}
+			
+			return;
+		}
+		else
+		{
+			switch(level)
+			{
+				case 0:
+					log_error (pTempChar);
+					break;
+				case 1:
+					log_info (pTempChar);
+					break;
+				case 2:
+					log_dbg (pTempChar);
+					break;
+			}
+			
+			if(pTempChar !=NULL)
+			{
+				free(pTempChar);
+				pTempChar = NULL;
+			}
+			
+			return;
+		}	
+	}
+	return;	
+}
+

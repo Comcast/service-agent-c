@@ -72,11 +72,11 @@ int svc_agt_init (const char *svcagt_directory)
 		return -1;
 	}
 	if (RUN_STATE_RUNNING == run_state) {
-		log_error ("SVCAGT: already running at init\n");
+		svcagt_log (LEVEL_ERROR, "SVCAGT: already running at init\n");
 		return EALREADY;
 	}
 	if (0 != run_state) {
-		log_error ("SVCAGT: not idle at init\n");
+		svcagt_log (LEVEL_ERROR, "SVCAGT: not idle at init\n");
 		return EBUSY;
 	}
 	err = svcagt_files_open (svcagt_directory);
@@ -163,7 +163,7 @@ int svc_agt_set (unsigned index, const char *new_state)
 	else if (strcmp (new_state, svcagt_goal_state_str (false)) == 0)
 		state_ = false;
 	else {
-		log_error ("Invalid goal state %s\n", new_state);
+		svcagt_log (LEVEL_ERROR,"Invalid goal state %s\n", new_state);
 		return -1;
 	}
 	return svcagt_db_set (index, state_);
