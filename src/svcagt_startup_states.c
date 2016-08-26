@@ -20,7 +20,7 @@
 #include "svcagt_db.h"
 
 #define SERVICES_DIR1 "/etc/systemd/system"
-#define SERVICES_DIR2 "/usr/lib/systemd/system"
+#define SERVICES_DIR2 "/lib/systemd/system"
 
 const char *services_dir1 = SERVICES_DIR1;
 const char *services_dir2 = SERVICES_DIR2;
@@ -59,11 +59,11 @@ int find_services_ (const char *services_dir)
 	char svc_name[SVCAGT_SVC_NAME_BUFLEN];
 
 	if (dirp == NULL) {
-		log_errno (errno, "Could not open systemd directory %s\n", services_dir);
+		svcagt_log (LEVEL_ERROR,"Could not open systemd directory %s, errno:%d(%s)\n", services_dir, errno, strerror(errno));
 		return -1;
 	}
 
-	log_info ("Finding services in %s\n", services_dir);
+	svcagt_log (LEVEL_INFO, "Finding services in %s\n", services_dir);
 	service_count = 0;
 	while (1) {
 		dent = readdir (dirp);
@@ -82,7 +82,7 @@ int find_services_ (const char *services_dir)
 	}
 
 	closedir (dirp);
-	log_info ("Found %d services in %s\n", service_count, services_dir);
+	svcagt_log (LEVEL_INFO, "Found %d services in %s\n", service_count, services_dir);
 	return 0;
 }
 
@@ -137,7 +137,7 @@ int remove_excluded_services (void)
 				count++;
 		}
 	}
-	log_info ("Excluded %d services\n", count);
+	svcagt_log (LEVEL_INFO, "Excluded %d services\n", count);
 	return 0;
 }
 
@@ -151,7 +151,7 @@ int set_states_from_goals_file (void)
 	long file_pos;
 	char name_buf[SVCAGT_SVC_NAME_BUFLEN];
 
-	log_info ("Restoring service states from goals file\n");
+	svcagt_log (LEVEL_INFO, "Restoring service states from goals file\n");
 	while (1) {
 		err = svcagt_goal_state_file_read (name_buf, &state, &file_pos);
 		if (err != 0)
@@ -160,7 +160,7 @@ int set_states_from_goals_file (void)
 		if (err == 0)
 			count++;
 	}
-	log_info ("Restored %d service states\n", count);
+	svcagt_log (LEVEL_INFO, "Restored %d service states\n", count);
 	if (err == 1) // EOF
 		return 0;
 	return err;
@@ -169,7 +169,7 @@ int set_states_from_goals_file (void)
 int svcagt_startup_states_init (void)
 {
 	int err;
-	// read /usr/lib/systemd/system and do adds
+	// read /lib/systemd/system and do adds
 	// read exclude list and remove
 	// read goals file and set states by name
 	err = find_services ();

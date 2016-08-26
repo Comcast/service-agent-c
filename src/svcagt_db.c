@@ -67,8 +67,7 @@ int svcagt_db_init_index (void)
 
 	service_count = HASH_COUNT (service_db);
 
-	log_dbg ("Creating service index\n");
-
+	svcagt_log (LEVEL_DEBUG, "Creating service index\n");
 	if (service_count == 0) {
 		service_index = NULL;
 		return 0;
@@ -77,7 +76,7 @@ int svcagt_db_init_index (void)
 	service_index = (struct my_service_struct **) 
 		malloc (service_count * sizeof (struct my_service_struct *));
 	if (service_index == NULL) {
-		log_error ("Unable to allocate mem for service index\n");
+		svcagt_log (LEVEL_ERROR, "Unable to allocate mem for service index\n");
 		return -1;
 	}
 
@@ -105,7 +104,7 @@ int get_remaining_states_from_system ()
 		s->goal_state = (bool) state;
 		count++;
 	}
-	log_info ("Got %u states from system\n", count);
+	svcagt_log (LEVEL_INFO, "Got %u states from system\n", count);
 	return 0;
 }
 
@@ -163,13 +162,13 @@ int svcagt_db_add (const char *name)
 
 	db_node = (struct my_service_struct*) malloc (sizeof (struct my_service_struct));
 	if (db_node == NULL) {
-		log_error ("Unable to allocate mem for new service db node\n");
+		svcagt_log (LEVEL_ERROR,"Unable to allocate mem for new service db node\n");
 		return ENOMEM;
 	}
 	name_len = strlen (name);
 	new_name = (char*) malloc (name_len+1);
 	if (new_name == NULL) {
-		log_error ("Unable to allocate mem for new service name\n");
+		svcagt_log (LEVEL_ERROR,"Unable to allocate mem for new service name\n");
 		return ENOMEM;
 	}
 	strcpy (new_name, name);
@@ -212,7 +211,7 @@ int svcagt_db_get (unsigned index, const char **name, bool *state, bool db_query
 	struct my_service_struct *db_node;
 
 	if (index >= service_count) {
-		log_dbg ("Invalid index %u provided to svcagt_db_get\n", index);
+		svcagt_log (LEVEL_DEBUG,"Invalid index %u provided to svcagt_db_get\n", index);
 		*name = NULL;
 		*state = -1;
 		return EINVAL;
@@ -221,7 +220,7 @@ int svcagt_db_get (unsigned index, const char **name, bool *state, bool db_query
 	pthread_mutex_lock (&svcagt_mutex);
 	db_node = service_index[index];
 	if (!db_query) {
-		log_dbg ("Updating node state\n");
+		svcagt_log (LEVEL_DEBUG,"Updating node state\n");
 		err = update_node_state (db_node);
 	}
 	*name = db_node->name;
@@ -238,7 +237,7 @@ int svcagt_set_by_name (const char *name, bool state, long state_file_pos)
 
 	HASH_FIND_STR (service_db, name, db_node);
 	if (db_node == NULL) {
-		log_dbg ("set by name %s not found\n", name);
+		svcagt_log (LEVEL_DEBUG,"set by name %s not found\n", name);
 		return EINVAL;
 	}
 	db_node->goal_state = state;
@@ -273,7 +272,7 @@ int svcagt_db_set (unsigned index, bool state)
 	struct my_service_struct *db_node;
 
 	if (index >= service_count) {
-		log_dbg ("Invalid index %u provided to svcagt_db_set\n", index);
+		svcagt_log (LEVEL_DEBUG,"Invalid index %u provided to svcagt_db_set\n", index);
 		return EINVAL;
 	}
 
@@ -282,14 +281,13 @@ int svcagt_db_set (unsigned index, bool state)
 	if (db_node->state_file_pos == -1) {
 		long file_pos;
 		svcagt_set_service_state (db_node->name, new_value);
-		log_dbg ("Appending %s to goal state file\n", db_node->name);
+		svcagt_log (LEVEL_DEBUG,"Appending %s to goal state file\n", db_node->name);
 		err = svcagt_goal_state_file_append (db_node->name, new_value, &file_pos);
 		if (err == 0)
 			db_node->state_file_pos = file_pos;
 	} else if (new_value != db_node->goal_state) {
 		svcagt_set_service_state (db_node->name, new_value);
-		log_dbg ("Updating %s:%d in goal state file at pos %ld\n", 
-			db_node->name, new_value, db_node->state_file_pos);
+		svcagt_log (LEVEL_DEBUG,"Updating %s:%d in goal state file at pos %ld\n", db_node->name, new_value, db_node->state_file_pos);
 		err = svcagt_goal_state_file_update (db_node->state_file_pos, new_value);
 	}
 	db_node->goal_state = new_value;
@@ -310,7 +308,7 @@ int svcagt_db_get_all (service_list_item_t **service_list, bool db_query)
 	}
 	item_array = (service_list_item_t *) malloc (service_count * sizeof (service_list_item_t));
 	if (item_array == NULL) {
-		log_error ("Unable to allocate mem for service list\n");
+		svcagt_log (LEVEL_ERROR,"Unable to allocate mem for service list\n");
 		return -1;
 	}
 	pthread_mutex_lock (&svcagt_mutex);
