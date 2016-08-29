@@ -28,6 +28,10 @@ add_executable(test_svcagt test_svcagt.c
  ../src/svcagt_startup_states.c
 )
 
+add_executable(mock_systemctl mock_systemctl.c)
+
+target_link_libraries (mock_systemctl -lm)
+
 target_link_libraries (test_svcagt gcov)
 target_link_libraries (test_svcagt cunit)
 target_link_libraries (test_svcagt -lm)

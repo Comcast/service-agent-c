@@ -4,9 +4,8 @@
 #     current user's home directory
 #  2. Updates the three test service files so that they
 #     point into the current directory
-#  3. Compiles mock_systemctl.c
-#  4. Compiles svcagt_test_service.c
-#  5. Installs the three test service files in /etc/systemd/system
+#  3. Compiles svcagt_test_service.c
+#  4. Installs the three test service files in /etc/systemd/system
 #
 #
 
@@ -184,9 +183,6 @@ def gcc (name):
     print "Error on compile of", name
   return rtn
 
-rtn = gcc ("mock_systemctl")
-if rtn != 0:
-  sys.exit(4)
 
 rtn = gcc ("svcagt_test_service")
 if rtn != 0:

@@ -1115,7 +1115,12 @@ void svc_agt_test (void)
 	else
 		printf ("make timestamp error %d\n", err);
 
-	svcagt_systemctl_cmd = "./mock_systemctl";
+	err = stat ("../build/tests/mock_systemctl", &stat_buf);
+	if (err != 0)
+		printf ("mock_systemctl not found in ../build/tests\n");
+	CU_ASSERT_FATAL (0 == err);
+
+	svcagt_systemctl_cmd = "../build/tests/mock_systemctl";
 
 	CU_ASSERT_FATAL (0 == check_mock_systemctl_running());
 

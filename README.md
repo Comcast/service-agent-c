@@ -29,7 +29,9 @@ actually start and stop services.  The pass-fail tests use a
 mock systemctl, so that code paths can be tested without actually
 invoking systemctl.
 
-### Setup for Tests
+### Setup for Systemd Tests
+
+Before you can run the systemd tests, you need to run a setup script:
 
 1. cd .../service-agent-c/tests
 2. python setup_svcagt_services.py
