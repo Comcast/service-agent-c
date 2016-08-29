@@ -21,7 +21,7 @@
 
 // Messages are always written to log files, but when TEST_ENVIRONMENT 
 // is defined, messages are also displayed on the terminal screen.
-#define TEST_ENVIRONMENT 1
+//#define TEST_ENVIRONMENT 1
 
 int log_init (const char *log_directory);
 
