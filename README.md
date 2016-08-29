@@ -43,7 +43,7 @@ three test services for use with the systemd tests.
 
 To run the systemd tests :
 
-1. c .../service-agent-c/tests
+1. cd .../service-agent-c/tests
 2. . start_systemd_test.sh
 3. In a separate terminal window, run test_svcagt
 
@@ -52,6 +52,9 @@ To run the systemd tests :
 
 To run the pass-fail tests :
 
-1. c .../service-agent-c/tests
-2. . start_pass_fail.sh
-3. In a separate terminal window, run test_svcagt
+1. cd .../service-agent-c/tests
+2. . start_pass_fail.sh &
+3. This will start a python script (mock_systemctl.py)
+4. ../build/tests/test_svcagt
+5. When the test finishes, kill the python script
+
