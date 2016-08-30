@@ -1,6 +1,9 @@
 # service_agent
 systemd service agent
 
+[![Build Status](https://travis-ci.org/Comcast/service-agent-c.svg?branch=master)](https://travis-ci.org/Comcast/service-agent-c) [![codecov.io](http://codecov.io/github/Comcast/service-agent-c/coverage.svg?branch=master)](http://codecov.io/github/Comcast/service-agent-c?branch=master)
+
+
 ## Build Requirements
 
 - https://github.com/troydhanson/uthash   (header file only)
