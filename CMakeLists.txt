@@ -14,7 +14,8 @@
 cmake_minimum_required(VERSION 2.8.7)
 project(svc_agt)
 include(ExternalProject)
-enable_testing()
+include(CTest)
+
 set(BUILD_DIR ${CMAKE_CURRENT_BINARY_DIR})
 set(INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/_install)
 set(PREFIX_DIR ${CMAKE_CURRENT_BINARY_DIR}/_prefix)
@@ -62,5 +63,6 @@ message (STATUS "C FLAGS: ${CMAKE_C_FLAGS}")
 link_directories ( ${LIBRARY_DIR} )
 add_definitions(-std=c99)
 
-add_subdirectory (tests)
-
+if (BUILD_TESTING)
+  add_subdirectory (tests)
+endif (BUILD_TESTING)
