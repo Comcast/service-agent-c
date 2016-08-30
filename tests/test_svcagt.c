@@ -6,6 +6,9 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
+#include <errno.h>
+#include <signal.h>
 #include <fcntl.h>
 #include <string.h>
 #include <unistd.h>
@@ -33,31 +36,31 @@ extern void dbg_err (int err, const char *fmt, ...);
 static const char *running_str = "Running";
 static const char *stopped_str = "Stopped";
 
+static const char *home_dir;
+
 #define MOCK_PID_FILE_NAME "mock_systemctl_pid.txt"
 
-int check_mock_systemctl_running (void)
+int check_mock_systemctl_running (bool verbose)
+// returns -1 fatal error
+// 0 mock_systemctl not running
+// 1 mock_systemctl running
 {
 	int err;
 	char *pos;
 	FILE *mock_pid_file;
-	const char *home_dir;
 	char name_buf[128];
 	char pid_buf[32];
 	struct stat stat_buf;
-
-	home_dir = getenv ("HOME");
-	if (NULL == home_dir) {
-		printf ("No $HOME defined\n");
-		return ENOENT;
-	}
 
 	sprintf (name_buf, "%s/%s", home_dir, MOCK_PID_FILE_NAME);
 
 	mock_pid_file = fopen (name_buf, "r");
 	if (NULL == mock_pid_file) {
-		printf ("mock_systemctl should be started\n");
-		printf ("file %s could not be opened\n", name_buf);
-		return -1;
+		if (verbose) {
+			printf ("mock_systemctl should be started\n");
+			printf ("file %s could not be opened\n", name_buf);
+		}
+		return 0;
 	}
 
 	if (NULL == fgets (pid_buf, 32, mock_pid_file)) {
@@ -76,9 +79,11 @@ int check_mock_systemctl_running (void)
 
 	err = stat (name_buf, &stat_buf);
 	if (err != 0) {
-		printf ("mock_systemctl should be started\n");
-		dbg_err (errno, "unable to stat %s\n", name_buf);
-		return -1;
+		if (verbose) {
+			printf ("mock_systemctl should be started\n");
+			dbg_err (errno, "unable to stat %s\n", name_buf);
+		}
+		return 0;
 	}
 	if (!S_ISDIR (stat_buf.st_mode)) {
 		printf ("mock_systemctl should be started\n");
@@ -86,7 +91,7 @@ int check_mock_systemctl_running (void)
 		return -1;
 	}
 
-	return 0;
+	return 1; // success
 }
 
 
@@ -787,11 +792,11 @@ int pass_fail_tests (void)
 	svc_agt_shutdown ();
 
 	err = remove ("./svcagt_goal_states.txt");
-	CU_ASSERT_FATAL ((err == 0) || (err == ENOENT));
-	if ((err != 0) && (err != ENOENT)) {
+	if ((err != 0) && (errno != ENOENT)) {
 		dbg_err (errno, "Error removing goal states file\n");
 		return -1;
 	}
+	CU_ASSERT_FATAL ((err == 0) || (errno == ENOENT));
 
 	svcagt_suppress_init_states = false;
 	set_test_services ("./mock_systemd_libs/etc", "./mock_systemd_libs/usr");
@@ -1102,10 +1107,58 @@ int systemd_tests (void)
 	return 0;
 }
 
-//int main(int argc, char *argv[])
-void svc_agt_test (void)
+int init_pass_fail_tests (void)
 {
 	int err;
+	char cmds_file_buf[128];
+	char responses_file_buf[128];
+	char name_buf[128];
+
+	err = remove ("./svcagt_goal_states.txt");
+	if ((err != 0) && (errno != ENOENT)) {
+		dbg_err (errno, "Error removing goal states file\n");
+		return -1;
+	}
+
+	sprintf (cmds_file_buf, "%s/%s", home_dir, "mock_systemctl_cmds.txt");
+	err = remove (cmds_file_buf);
+	if ((err != 0) && (errno != ENOENT)) {
+		dbg_err (errno, "Error removing mock_systemctl_cmds.txt file\n");
+		return -1;
+	}
+
+	sprintf (responses_file_buf, "%s/%s", home_dir, "mock_systemctl_responses.txt");
+	err = remove (responses_file_buf);
+	if ((err != 0) && (errno != ENOENT)) {
+		dbg_err (errno, "Error removing mock_systemctl_responses.txt file\n");
+		return -1;
+	}
+
+	sprintf (name_buf, "%s/%s", home_dir, "mock_systemctl_msgs.txt");
+	err = remove (name_buf);
+	if ((err != 0) && (errno != ENOENT)) {
+		dbg_err (errno, "Error removing mock_systemctl_msgs.txt file\n");
+		return -1;
+	}
+
+	err = mkfifo (cmds_file_buf, 0664);
+	if (err != 0) {
+		dbg_err (errno, "Error creating mock_systemctl_cmds.txt pipe\n");
+		return -1;
+	}
+
+	err = mkfifo (responses_file_buf, 0664);
+	if (err != 0) {
+		dbg_err (errno, "Error creating mock_systemctl_responses.txt pipe\n");
+		return -1;
+	}
+
+	return 0;
+}
+
+void svc_agt_test (void)
+{
+	int err, pid;
 	char timestamp[20];
 	struct stat stat_buf;
 
@@ -1115,6 +1168,12 @@ void svc_agt_test (void)
 	else
 		printf ("make timestamp error %d\n", err);
 
+	home_dir = getenv ("HOME");
+	if (NULL == home_dir) {
+		printf ("No $HOME defined\n");
+	}
+	CU_ASSERT_FATAL (NULL != home_dir);
+
 	err = stat ("../build/tests/mock_systemctl", &stat_buf);
 	if (err != 0)
 		printf ("mock_systemctl not found in ../build/tests\n");
@@ -1122,13 +1181,56 @@ void svc_agt_test (void)
 
 	svcagt_systemctl_cmd = "../build/tests/mock_systemctl";
 
-	CU_ASSERT_FATAL (0 == check_mock_systemctl_running());
+	err = check_mock_systemctl_running(false);
+	CU_ASSERT_FATAL (err >= 0);
 
-	err = stat ("./svcagt_goal_states.txt", &stat_buf);
-	if (err == 0)
-		systemd_tests ();
-	else
+	if (err == 1) { // mock_systemctl already running
+		err = stat ("./svcagt_goal_states.txt", &stat_buf);
+		if (err == 0)
+			systemd_tests ();
+		else
+			pass_fail_tests ();
+		return;
+	}
+
+	CU_ASSERT_FATAL (0 == init_pass_fail_tests ());
+
+	pid = fork ();
+	if (pid == -1) {
+		char errbuf[100];
+		printf ("Fork failed: %s\n", strerror_r (errno, errbuf, 100));
+		CU_ASSERT_FATAL (-1 != pid);
+	}
+	if (pid == 0) {
+		// child
+		int err = execlp ("python", "./mock_systemctl.py",  "./mock_systemctl.py", 
+			home_dir, (char*)NULL);
+		if (err != 0) {
+			char errbuf[100];
+			printf ("Failed execl of mock_systemctl.py: %s\n", strerror_r (errno, errbuf, 100));
+		}
+		printf ("Child finished\n");
+	} else {
+		int err;
+		int count = 0;
+		sleep (1);
+		while (1) {
+			err = check_mock_systemctl_running (true);
+			if (err < 0) {
+				kill (pid, SIGTERM);
+				return;
+			}
+			if (err == 1)
+				break;
+			if (++count >= 4) {
+				kill (pid, SIGTERM);
+				return;
+			}
+			sleep (1);
+		}
 		pass_fail_tests ();
+		kill (pid, SIGTERM);
+	}
 }
 
 void add_suites( CU_pSuite *suite )
