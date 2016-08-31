@@ -13,7 +13,6 @@
 #   limitations under the License.
 
 add_test(NAME TestSvcAgt 
- WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/..
  COMMAND ${CMAKE_CURRENT_BINARY_DIR}/test_svcagt
 )
 

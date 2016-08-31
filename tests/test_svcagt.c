@@ -44,13 +44,26 @@ static const char *build_tests_dir;
 
 #define BUILD_DIR_TAIL "/service-agent-c/build"
 #define TESTS_DIR_TAIL "/service-agent-c/tests"
+#define BUILD_TESTS_DIR_TAIL "/service-agent-c/build/tests"
 
 static char current_dir_buf[256];
-static bool is_in_build_dir = false;
 
-#define RUN_TESTS_NAME(name) (is_in_build_dir ? "../tests/" name : "./" name)
+#define CURRENT_DIR_IS_BUILD	0
+#define CURRENT_DIR_IS_TESTS	1
+#define CURRENT_DIR_IS_BUILD_TESTS	2
 
-#define BUILD_TESTS_NAME(name) (is_in_build_dir ? "./tests/" name : "../build/tests/" name)
+static int current_dir_id = CURRENT_DIR_IS_BUILD;
+
+
+#define RUN_TESTS_NAME(name) ( \
+  (current_dir_id == CURRENT_DIR_IS_BUILD) ? "../tests/" name : \
+  (current_dir_id == CURRENT_DIR_IS_TESTS) ? "./" name : \
+  "../../tests/" name )   
+
+#define BUILD_TESTS_NAME(name) ( \
+  (current_dir_id == CURRENT_DIR_IS_BUILD) ? "./tests/" name : \
+  (current_dir_id == CURRENT_DIR_IS_TESTS) ? "../build/tests/" name : \
+  "./" name )
 
 
 int get_current_dir (void)
@@ -67,10 +80,19 @@ int get_current_dir (void)
 	current_dir_len = strlen (current_dir_buf);
 	end_pos = current_dir + current_dir_len;
 	
+	tail_len = strlen (BUILD_TESTS_DIR_TAIL);
+	pos = end_pos - tail_len;
+	if (strcmp (pos, BUILD_TESTS_DIR_TAIL) == 0) {
+		current_dir_id = CURRENT_DIR_IS_BUILD_TESTS;
+		run_tests_dir = "../../tests";
+		build_tests_dir = ".";
+		return 0;
+	}
+
 	tail_len = strlen (BUILD_DIR_TAIL);
 	pos = end_pos - tail_len;
 	if (strcmp (pos, BUILD_DIR_TAIL) == 0) {
-		is_in_build_dir = true;
+		current_dir_id = CURRENT_DIR_IS_BUILD;
 		run_tests_dir = "../tests";
 		build_tests_dir = "./tests";
 		return 0;
@@ -79,7 +101,7 @@ int get_current_dir (void)
 	tail_len = strlen (TESTS_DIR_TAIL);
 	pos = end_pos - tail_len;
 	if (strcmp (pos, TESTS_DIR_TAIL) == 0) {
-		is_in_build_dir = false;
+		current_dir_id = CURRENT_DIR_IS_TESTS;
 		run_tests_dir = ".";
 		build_tests_dir = "../build/tests";
 		return 0;
