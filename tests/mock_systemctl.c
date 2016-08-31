@@ -10,6 +10,7 @@
 #include <stdbool.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #define NAME_BUFLEN 128
 #define CMD_PIPE_NAME "mock_systemctl_cmds.txt"
@@ -18,7 +19,6 @@
 static char cmd_pipe_name[NAME_BUFLEN];
 static char response_pipe_name[NAME_BUFLEN];
 
-static char svc_name_buf[NAME_BUFLEN];
 static char cmd_buf[NAME_BUFLEN];
 static char response_buf[10];
 

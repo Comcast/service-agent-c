@@ -37,8 +37,57 @@ static const char *running_str = "Running";
 static const char *stopped_str = "Stopped";
 
 static const char *home_dir;
+static const char *run_tests_dir;
+static const char *build_tests_dir;
 
 #define MOCK_PID_FILE_NAME "mock_systemctl_pid.txt"
+
+#define BUILD_DIR_TAIL "/service-agent-c/build"
+#define TESTS_DIR_TAIL "/service-agent-c/tests"
+
+static char current_dir_buf[256];
+static bool is_in_build_dir = false;
+
+#define RUN_TESTS_NAME(name) (is_in_build_dir ? "../tests/" name : "./" name)
+
+#define BUILD_TESTS_NAME(name) (is_in_build_dir ? "./tests/" name : "../build/tests/" name)
+
+
+int get_current_dir (void)
+{
+	int current_dir_len, tail_len;
+	char *pos, *end_pos;
+	char *current_dir = getcwd (current_dir_buf, 256);
+
+	if (NULL == current_dir) {
+		dbg_err (errno, "Unable to get current directory\n");
+		return -1;
+	}
+
+	current_dir_len = strlen (current_dir_buf);
+	end_pos = current_dir + current_dir_len;
+	
+	tail_len = strlen (BUILD_DIR_TAIL);
+	pos = end_pos - tail_len;
+	if (strcmp (pos, BUILD_DIR_TAIL) == 0) {
+		is_in_build_dir = true;
+		run_tests_dir = "../tests";
+		build_tests_dir = "./tests";
+		return 0;
+	}
+
+	tail_len = strlen (TESTS_DIR_TAIL);
+	pos = end_pos - tail_len;
+	if (strcmp (pos, TESTS_DIR_TAIL) == 0) {
+		is_in_build_dir = false;
+		run_tests_dir = ".";
+		build_tests_dir = "../build/tests";
+		return 0;
+	}
+
+	dbg ("Not in build directory or tests directory\n");
+	return -1;
+}
 
 int check_mock_systemctl_running (bool verbose)
 // returns -1 fatal error
@@ -622,6 +671,20 @@ void delay (unsigned long delay_secs)
 	}
 }
 
+int remove_goal_states_file (void)
+{
+	int err;
+	char name_buf[128];
+
+	sprintf (name_buf, "%s/svcagt_goal_states.txt", run_tests_dir);
+	err = remove (name_buf);
+	if ((err != 0) && (errno != ENOENT)) {
+		dbg_err (errno, "Error removing goal states file\n");
+		return -1;
+	}
+	return 0;
+}
+
 int pass_fail_tests (void)
 {
 	int err;
@@ -701,7 +764,7 @@ int pass_fail_tests (void)
 		printf ("SUCCESS: svc_sgt_init of non-existent directory failed, as it should\n"); 
 
 	svcagt_suppress_init_states = true;
-	err = svc_agt_init (".");
+	err = svc_agt_init (run_tests_dir);
 	CU_ASSERT (0==err);
 	if (err != 0)
 		return 0;
@@ -791,17 +854,16 @@ int pass_fail_tests (void)
 	}
 	svc_agt_shutdown ();
 
-	err = remove ("./svcagt_goal_states.txt");
-	if ((err != 0) && (errno != ENOENT)) {
-		dbg_err (errno, "Error removing goal states file\n");
-		return -1;
-	}
-	CU_ASSERT_FATAL ((err == 0) || (errno == ENOENT));
+	err = remove_goal_states_file ();
+	CU_ASSERT_FATAL (err == 0);
 
 	svcagt_suppress_init_states = false;
-	set_test_services ("./mock_systemd_libs/etc", "./mock_systemd_libs/usr");
+	set_test_services (
+		RUN_TESTS_NAME ("mock_systemd_libs/etc"),
+ 		RUN_TESTS_NAME ("mock_systemd_libs/usr")
+	);
 
-	err = svc_agt_init (".");
+	err = svc_agt_init (run_tests_dir);
 	CU_ASSERT (0==err);
 	if (err == 0)
 		err = show_goal_states_file ();
@@ -945,7 +1007,7 @@ int systemd_tests (void)
 		delay_secs = 15;
 #endif
 	svcagt_suppress_init_states = false;
-	err = svc_agt_init (".");
+	err = svc_agt_init (run_tests_dir);
 	CU_ASSERT (0==err);
 	if (err != 0)
 		return 0;
@@ -1114,11 +1176,9 @@ int init_pass_fail_tests (void)
 	char responses_file_buf[128];
 	char name_buf[128];
 
-	err = remove ("./svcagt_goal_states.txt");
-	if ((err != 0) && (errno != ENOENT)) {
-		dbg_err (errno, "Error removing goal states file\n");
+	err = remove_goal_states_file ();
+	if (err != 0)
 		return -1;
-	}
 
 	sprintf (cmds_file_buf, "%s/%s", home_dir, "mock_systemctl_cmds.txt");
 	err = remove (cmds_file_buf);
@@ -1161,6 +1221,7 @@ void svc_agt_test (void)
 	int err, pid;
 	char timestamp[20];
 	struct stat stat_buf;
+	const char *mock_systemctl_name;
 
 	err = make_current_timestamp (timestamp);
 	if (err == 0)
@@ -1173,19 +1234,22 @@ void svc_agt_test (void)
 		printf ("No $HOME defined\n");
 	}
 	CU_ASSERT_FATAL (NULL != home_dir);
+	CU_ASSERT_FATAL (0 == get_current_dir ());
 
-	err = stat ("../build/tests/mock_systemctl", &stat_buf);
+	mock_systemctl_name = BUILD_TESTS_NAME ("mock_systemctl");
+
+	err = stat (mock_systemctl_name, &stat_buf);
 	if (err != 0)
 		printf ("mock_systemctl not found in ../build/tests\n");
 	CU_ASSERT_FATAL (0 == err);
 
-	svcagt_systemctl_cmd = "../build/tests/mock_systemctl";
+	svcagt_systemctl_cmd = mock_systemctl_name;
 
 	err = check_mock_systemctl_running(false);
 	CU_ASSERT_FATAL (err >= 0);
 
 	if (err == 1) { // mock_systemctl already running
-		err = stat ("./svcagt_goal_states.txt", &stat_buf);
+		err = stat (RUN_TESTS_NAME ("svcagt_goal_states.txt"), &stat_buf);
 		if (err == 0)
 			systemd_tests ();
 		else
@@ -1203,7 +1267,8 @@ void svc_agt_test (void)
 	}
 	if (pid == 0) {
 		// child
-		int err = execlp ("python", "./mock_systemctl.py",  "./mock_systemctl.py", 
+		const char *mock_systemctl_name = RUN_TESTS_NAME ("mock_systemctl.py");
+		int err = execlp ("python", mock_systemctl_name, mock_systemctl_name,
 			home_dir, (char*)NULL);
 		if (err != 0) {
 			char errbuf[100];
