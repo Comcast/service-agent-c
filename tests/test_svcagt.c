@@ -56,13 +56,13 @@ static int current_dir_id = CURRENT_DIR_IS_BUILD;
 
 
 #define RUN_TESTS_NAME(name) ( \
-  (current_dir_id == CURRENT_DIR_IS_BUILD) ? "../tests/" name : \
   (current_dir_id == CURRENT_DIR_IS_TESTS) ? "./" name : \
+  (current_dir_id == CURRENT_DIR_IS_BUILD) ? "../tests/" name : \
   "../../tests/" name )   
 
 #define BUILD_TESTS_NAME(name) ( \
-  (current_dir_id == CURRENT_DIR_IS_BUILD) ? "./tests/" name : \
   (current_dir_id == CURRENT_DIR_IS_TESTS) ? "../build/tests/" name : \
+  (current_dir_id == CURRENT_DIR_IS_BUILD) ? "./tests/" name : \
   "./" name )
 
 
@@ -182,18 +182,6 @@ int load_goal_states_list (service_list_item_t **service_list)
 	err = svcagt_goal_state_file_rewind ();
 	if (err != 0)
 		return err;
-#if 0
-	fd = open ("./svcagt_goal_states.txt", O_RDONLY, 0666);
-	if (fd < 0) {
-		printf ("Error(1) opening goal states file\n");
-		return -1;
-	}
-	fp = fdopen (fd, "r");
-	if (fp == NULL) {
-		printf ("Error(2) opening goal states file\n");
-		return -1;
-	}
-#endif
 
 	index = 0;
 	while (true) {
@@ -202,24 +190,6 @@ int load_goal_states_list (service_list_item_t **service_list)
 			break;
 		if (err != 0)
 			return -1;
-#if 0
-		nfields = fscanf (fp, "%d %s\n", &state_, svc_name_buf);
-		if (nfields == EOF) {
-			break;
-		}
-		if (nfields != 2) {
-			printf ("Format error in goal states file\n");
-			return -1;
-		}
-		if (state_ == (int)true)
-			goal_state = true;
-		else if (state_ == (int)false)
-			goal_state = false;
-		else {
-			printf ("Invalid state %d in goal_states file\n", state_);
-			return -1;
-		}
-#endif
 		svc_name = (char *) malloc (strlen(svc_name_buf) + 1);
 		if (svc_name == NULL) {
 			printf ("Unable to allocate mem for service name\n");
@@ -777,7 +747,7 @@ int pass_fail_tests (void)
 		remove_service_list (list2);
 	}
 
-	err = svc_agt_init ("nosuch");
+	err = svc_agt_init ("nosuch", NULL);
 	CU_ASSERT (0 != err);
 	if (err == 0) {
 		printf ("FAIL: svc_agt_init of non-existent directory should fail\n");
@@ -786,7 +756,7 @@ int pass_fail_tests (void)
 		printf ("SUCCESS: svc_sgt_init of non-existent directory failed, as it should\n"); 
 
 	svcagt_suppress_init_states = true;
-	err = svc_agt_init (run_tests_dir);
+	err = svc_agt_init (run_tests_dir, run_tests_dir);
 	CU_ASSERT (0==err);
 	if (err != 0)
 		return 0;
@@ -885,7 +855,7 @@ int pass_fail_tests (void)
  		RUN_TESTS_NAME ("mock_systemd_libs/usr")
 	);
 
-	err = svc_agt_init (run_tests_dir);
+	err = svc_agt_init (run_tests_dir, NULL);
 	CU_ASSERT (0==err);
 	if (err == 0)
 		err = show_goal_states_file ();
@@ -1029,7 +999,7 @@ int systemd_tests (void)
 		delay_secs = 15;
 #endif
 	svcagt_suppress_init_states = false;
-	err = svc_agt_init (run_tests_dir);
+	err = svc_agt_init (run_tests_dir, NULL);
 	CU_ASSERT (0==err);
 	if (err != 0)
 		return 0;

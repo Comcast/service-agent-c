@@ -35,9 +35,11 @@ typedef struct service_list_item {
  * Initialize the service agent
  *
  * @param svcagt_directory directory where the service agent saves info
+ * @param svcagt_ex_directory directory where extra input files are found
+ *        currently, this directory has the exclude services file
  * @return 0 on success, valid errno otherwise.
  */
-int svc_agt_init (const char *svcagt_directory);
+int svc_agt_init (const char *svcagt_directory, const char *svcagt_ex_directory);
 
 /**
  * Shut down the service agent

@@ -32,37 +32,52 @@ static char log_dirname[FILENAME_BUFLEN];
 
 extern const char *svcagt_goal_state_str (bool state);
 
+static int validate_directory (const char *directory, const char *msg)
+{
+	int err;
+	struct stat stat_buf;
+
+	if (NULL == directory) {
+		dbg ("svc_agt init NULL %s directory provided\n", msg);
+		return -1;
+	}
+
+	if (strlen(directory) > SVCAGT_DIR_MAXLEN) {
+		dbg ("svc agt init %s directory name too long\n", msg);
+		return -1;
+	}
+
+	err = stat (directory, &stat_buf);
+	if (err != 0) {
+		dbg_err (errno, "directory %s cannot be accessed\n", directory);
+		return -1;
+	}
+	if (!S_ISDIR (stat_buf.st_mode)) {
+		dbg ("%s is not a directory\n", directory);
+		return -1;
+	}
+	return 0;
+}
+
 /**
  * Initialize the service agent
  *
  * @param svcagt_directory directory where the service agent saves info
  * @param service_list Pointer to a linked list of service_list_item's
+ * @param svcagt_ex_directory directory where extra input files are found
  * @return 0 on success, valid errno otherwise.
  */
-int svc_agt_init (const char *svcagt_directory)
+int svc_agt_init (const char *svcagt_directory, const char *svcagt_ex_directory)
 {
-	int err;
-	struct stat stat_buf;
+	int err = 0;
 
-	if (NULL == svcagt_directory) {
-		dbg ("svc_agt init NULL svcagt directory provided\n");
+	if (validate_directory (svcagt_directory, "svcagt") != 0)
 		return -1;
-	}
 
-	if (strlen(svcagt_directory) > SVCAGT_DIR_MAXLEN) {
-		dbg ("svc agt init svcagt directory name too long\n");
+	if (NULL == svcagt_ex_directory)
+		svcagt_ex_directory = svcagt_directory;
+	else if (validate_directory (svcagt_ex_directory, "svcagt_ex") != 0)
 		return -1;
-	}
-
-	err = stat (svcagt_directory, &stat_buf);
-	if (err != 0) {
-		dbg_err (errno, "directory %s cannot be accessed\n", svcagt_directory);
-		return -1;
-	}
-	if (!S_ISDIR (stat_buf.st_mode)) {
-		dbg ("%s is not a directory\n", svcagt_directory);
-		return -1;
-	}
 
 	sprintf (log_dirname, "%s/logs", svcagt_directory);
 
@@ -79,7 +94,7 @@ int svc_agt_init (const char *svcagt_directory)
 		svcagt_log (LEVEL_ERROR, "SVCAGT: not idle at init\n");
 		return EBUSY;
 	}
-	err = svcagt_files_open (svcagt_directory);
+	err = svcagt_files_open (svcagt_directory, svcagt_ex_directory);
 	if (err == 0) {
 		err = svcagt_db_init ();
 		if (err == 0)

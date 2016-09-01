@@ -54,17 +54,16 @@ int tell_file_pos (long *pos)
 	return 0;
 }
 
-int svcagt_files_open (const char *svcagt_directory)
+int svcagt_files_open (const char *svcagt_directory, const char *svcagt_ex_directory)
 {
 	int fd;
 
-	sprintf (exclude_fname, "%s/svcagt_exclude_services.txt", svcagt_directory);
+	sprintf (exclude_fname, "%s/svcagt_exclude_services.txt", svcagt_ex_directory);
 	sprintf (goal_states_fname, "%s/svcagt_goal_states.txt", svcagt_directory);
 
 	// Open the exclude file for read only
 	exclude_fp = fopen (exclude_fname, "r");
 	if (NULL == exclude_fp)
-		
 		svcagt_log (LEVEL_DEBUG, "File %s not opened\n", exclude_fname);
 	else
 		svcagt_log (LEVEL_INFO, "Opened file %s\n", exclude_fname);

@@ -22,7 +22,7 @@
  * Open all files.
  *
  */
-int svcagt_files_open (const char *svcagt_directory);
+int svcagt_files_open (const char *svcagt_directory, const char *svcagt_ex_directory);
 
 /**
  * Close all files.
