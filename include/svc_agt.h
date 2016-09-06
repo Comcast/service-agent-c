@@ -12,6 +12,7 @@
 #define  _SVC_AGT_H
 
 #include <stdbool.h>
+#include "svcagt_log.h"
 
 
 // goal states that we understand
@@ -37,9 +38,12 @@ typedef struct service_list_item {
  * @param svcagt_directory directory where the service agent saves info
  * @param svcagt_ex_directory directory where extra input files are found
  *        currently, this directory has the exclude services file
+ * @param log_handler handler to receive all log notifications
  * @return 0 on success, valid errno otherwise.
  */
-int svc_agt_init (const char *svcagt_directory, const char *svcagt_ex_directory);
+int svc_agt_init (const char *svcagt_directory, 
+		const char *svcagt_ex_directory,
+		svcagtLogHandler log_handler);
 
 /**
  * Shut down the service agent

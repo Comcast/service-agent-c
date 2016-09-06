@@ -20,8 +20,6 @@
 #include "svcagt_db.h"
 #include "svcagt_files.h"
 
-extern void dbg (const char *fmt, ...);
-extern void dbg_err (int err, const char *fmt, ...);
 
 #define RUN_STATE_RUNNING	1234
 #define RUN_STATE_DONE		-1234
@@ -38,22 +36,22 @@ static int validate_directory (const char *directory, const char *msg)
 	struct stat stat_buf;
 
 	if (NULL == directory) {
-		dbg ("svc_agt init NULL %s directory provided\n", msg);
+		svcagt_log (LEVEL_NO_LOGGER, 0, "svc_agt init NULL %s directory provided\n", msg);
 		return -1;
 	}
 
 	if (strlen(directory) > SVCAGT_DIR_MAXLEN) {
-		dbg ("svc agt init %s directory name too long\n", msg);
+		svcagt_log (LEVEL_NO_LOGGER, 0, "svc agt init %s directory name too long\n", msg);
 		return -1;
 	}
 
 	err = stat (directory, &stat_buf);
 	if (err != 0) {
-		dbg_err (errno, "directory %s cannot be accessed\n", directory);
+		svcagt_log (LEVEL_NO_LOGGER, errno, "directory %s cannot be accessed\n", directory);
 		return -1;
 	}
 	if (!S_ISDIR (stat_buf.st_mode)) {
-		dbg ("%s is not a directory\n", directory);
+		svcagt_log (LEVEL_NO_LOGGER, 0, "%s is not a directory\n", directory);
 		return -1;
 	}
 	return 0;
@@ -63,11 +61,13 @@ static int validate_directory (const char *directory, const char *msg)
  * Initialize the service agent
  *
  * @param svcagt_directory directory where the service agent saves info
- * @param service_list Pointer to a linked list of service_list_item's
  * @param svcagt_ex_directory directory where extra input files are found
+ * @param log_handler handler to receive all log notifications
  * @return 0 on success, valid errno otherwise.
  */
-int svc_agt_init (const char *svcagt_directory, const char *svcagt_ex_directory)
+int svc_agt_init (const char *svcagt_directory, 
+		const char *svcagt_ex_directory,
+		svcagtLogHandler log_handler)
 {
 	int err = 0;
 
@@ -81,17 +81,17 @@ int svc_agt_init (const char *svcagt_directory, const char *svcagt_ex_directory)
 
 	sprintf (log_dirname, "%s/logs", svcagt_directory);
 
-	err = log_init (log_dirname);
+	err = log_init (log_dirname, log_handler);
 	if (err != 0) {
-		dbg ("Failed to init logger\n");
+		svcagt_log (LEVEL_NO_LOGGER, 0, "Failed to init logger\n");
 		return -1;
 	}
 	if (RUN_STATE_RUNNING == run_state) {
-		svcagt_log (LEVEL_ERROR, "SVCAGT: already running at init\n");
+		svcagt_log (LEVEL_ERROR, 0, "SVCAGT: already running at init\n");
 		return EALREADY;
 	}
 	if (0 != run_state) {
-		svcagt_log (LEVEL_ERROR, "SVCAGT: not idle at init\n");
+		svcagt_log (LEVEL_ERROR, 0, "SVCAGT: not idle at init\n");
 		return EBUSY;
 	}
 	err = svcagt_files_open (svcagt_directory, svcagt_ex_directory);
@@ -122,7 +122,7 @@ int svc_agt_shutdown (void)
 int svc_agt_get_all (service_list_item_t **service_list, bool db_query)
 {
 	if (RUN_STATE_RUNNING != run_state) {
-		dbg ("SVCAGT: not running at get all\n");
+		svcagt_log (LEVEL_NO_LOGGER, 0, "SVCAGT: not running at get all\n");
 		return -1;
 	}
 	return svcagt_db_get_all (service_list, db_query);
@@ -147,7 +147,7 @@ int svc_agt_get (unsigned index, service_info_t *service_info, bool db_query)
 	int err;
 
 	if (RUN_STATE_RUNNING != run_state) {
-		dbg ("SVCAGT: not running at get\n");
+		svcagt_log (LEVEL_NO_LOGGER, 0, "SVCAGT: not running at get\n");
 		return -1;
 	}
 	err = svcagt_db_get (index, &name, &state, db_query);
@@ -170,7 +170,7 @@ int svc_agt_set (unsigned index, const char *new_state)
 	bool state_;
 
 	if (RUN_STATE_RUNNING != run_state) {
-		dbg ("SVCAGT: not running at set\n");
+		svcagt_log (LEVEL_NO_LOGGER, 0, "SVCAGT: not running at set\n");
 		return -1;
 	}
 	if (strcmp (new_state, svcagt_goal_state_str (true)) == 0)
@@ -178,7 +178,7 @@ int svc_agt_set (unsigned index, const char *new_state)
 	else if (strcmp (new_state, svcagt_goal_state_str (false)) == 0)
 		state_ = false;
 	else {
-		svcagt_log (LEVEL_ERROR,"Invalid goal state %s\n", new_state);
+		svcagt_log (LEVEL_ERROR, 0, "Invalid goal state %s\n", new_state);
 		return -1;
 	}
 	return svcagt_db_set (index, state_);

@@ -18,8 +18,10 @@
 #include <svcagt_db.h>
 #include <svcagt_files.h>
 #include <svcagt_time.h>
+#include <svcagt_log.h>
 #include <utlist.h>
 #include <CUnit/Basic.h>
+
 
 extern int svcagt_db_init_index (void);
 extern void svcagt_show_service_db (void);
@@ -30,8 +32,6 @@ extern bool svcagt_suppress_init_states;
 extern void set_test_services (const char *test_services_dir1, const char *test_services_dir2);
 extern int svcagt_get_service_state (const char *svc_name);
 extern const char *svcagt_systemctl_cmd;
-extern void dbg (const char *fmt, ...);
-extern void dbg_err (int err, const char *fmt, ...);
 
 static const char *running_str = "Running";
 static const char *stopped_str = "Stopped";
@@ -65,6 +65,46 @@ static int current_dir_id = CURRENT_DIR_IS_BUILD;
   (current_dir_id == CURRENT_DIR_IS_BUILD) ? "./tests/" name : \
   "./" name )
 
+/**
+ * These functions are used to test the case where a log handler
+ * function is supplied
+*/
+static FILE *handler_log_file;
+static char handler_log_fname[128];
+extern const char *level_names[3];
+
+void handler_log_msg (int level, const char *log_msg)
+{
+	int err = 0;
+	char timestamp[TIMESTAMP_BUFLEN];
+
+	err = make_current_timestamp (timestamp);
+	if (err != 0)
+		timestamp[0] = '\0';
+
+	printf ("[%s] %s: %s", timestamp, level_names[level], log_msg);
+	if (NULL != handler_log_file)
+		fprintf (handler_log_file, "[%s] %s: %s", timestamp, level_names[level], log_msg);
+}
+
+void handler_log_init (void)
+{
+	sprintf (handler_log_fname, "%s/handler_log.txt", run_tests_dir);
+	handler_log_file = fopen (handler_log_fname, "w");
+	if (NULL == handler_log_file) {
+		svcagt_log (LEVEL_NO_LOGGER, 0, "Unable to open %s for output\n", handler_log_fname);
+		return;
+	}
+	log_init (NULL, &handler_log_msg);
+}
+
+void handler_log_end (void)
+{
+	if (NULL != handler_log_file)
+		fclose (handler_log_file);
+	handler_log_file = NULL;
+}
+//----------------------------------------------------------------
 
 int get_current_dir (void)
 {
@@ -73,7 +113,7 @@ int get_current_dir (void)
 	char *current_dir = getcwd (current_dir_buf, 256);
 
 	if (NULL == current_dir) {
-		dbg_err (errno, "Unable to get current directory\n");
+		svcagt_log (LEVEL_NO_LOGGER, errno, "Unable to get current directory\n");
 		return -1;
 	}
 
@@ -107,7 +147,7 @@ int get_current_dir (void)
 		return 0;
 	}
 
-	dbg ("Not in build directory or tests directory\n");
+	svcagt_log (LEVEL_NO_LOGGER, 0, "Not in build directory or tests directory\n");
 	return -1;
 }
 
@@ -152,7 +192,7 @@ int check_mock_systemctl_running (bool verbose)
 	if (err != 0) {
 		if (verbose) {
 			printf ("mock_systemctl should be started\n");
-			dbg_err (errno, "unable to stat %s\n", name_buf);
+			svcagt_log (LEVEL_NO_LOGGER, errno, "unable to stat %s\n", name_buf);
 		}
 		return 0;
 	}
@@ -671,7 +711,7 @@ int remove_goal_states_file (void)
 	sprintf (name_buf, "%s/svcagt_goal_states.txt", run_tests_dir);
 	err = remove (name_buf);
 	if ((err != 0) && (errno != ENOENT)) {
-		dbg_err (errno, "Error removing goal states file\n");
+		svcagt_log (LEVEL_NO_LOGGER, errno, "Error removing goal states file\n");
 		return -1;
 	}
 	return 0;
@@ -679,7 +719,7 @@ int remove_goal_states_file (void)
 
 int pass_fail_tests (void)
 {
-	int err;
+	int err, fd;
 	bool tf_result;
 	const char *name;
 	bool state;
@@ -691,7 +731,7 @@ int pass_fail_tests (void)
 	int sheepdog_index = -1;
 	int sm_client_index = -1;
 
-
+	handler_log_init ();
 	err = make_svc_list (&service_list, "1service1", "0sajwt1", "0winbind",
 		"1utlist", NULL);
 	CU_ASSERT (0 == err);
@@ -706,9 +746,9 @@ int pass_fail_tests (void)
 		tf_result = lists_equal (service_list, list2);
 		CU_ASSERT (tf_result);
 		if (tf_result)
-			printf ("SUCCESS: Lists are equal\n");
+			svcagt_log (LEVEL_INFO, 0, "SUCCESS: Lists are equal\n");
 		else
-			printf ("FAIL: Lists are not equal\n");
+			svcagt_log (LEVEL_ERROR, 0, "FAIL: Lists are not equal\n");
 		remove_service_list (service_list);
 		err = make_svc_list (&service_list, "1service1", "0sajwt1", "0winbind",
 			"1utlist", "1zzlist2", NULL);
@@ -718,36 +758,41 @@ int pass_fail_tests (void)
 		tf_result = lists_equal (service_list, list2);
 		CU_ASSERT (!tf_result);
 		if (tf_result)
-			printf ("FAIL: Lists are equal, but should not be\n");
+			svcagt_log (LEVEL_ERROR, 0, "FAIL: Lists are equal, but should not be\n");
 		else
-			printf ("SUCCESS: lists are not equal and should not be\n");
+			svcagt_log (LEVEL_INFO, 0, "SUCCESS: lists are not equal and should not be\n");
 		err = list_equals (list2, "1service1", "0sajwt1", "0winbind",
 			"1utlist", NULL);
 		CU_ASSERT (1 == err);
-		printf ("List equals result %d (should be 1)\n", err);
+		svcagt_log (LEVEL_INFO, 0, "List equals result %d (should be 1)\n", err);
 		err = list_equals (list2, "1service2", "0sajwt1", "0winbind",
 			"1utlist", NULL);
 		CU_ASSERT (0 == err);
-		printf ("List equals result %d (should be 0)\n", err);
+		svcagt_log (LEVEL_INFO, 0, "List equals result %d (should be 0)\n", err);
 		DL_SORT (service_list, sort_cmp);
 		DL_SORT (list2, sort_cmp);
 		tf_result = list1_in_list2 (list2, service_list);
 		CU_ASSERT (tf_result);
 		if (tf_result)
-			printf ("SUCCESS: list2 is contained in service list as it should be)\n");
+			svcagt_log (LEVEL_INFO, 0, "SUCCESS: list2 is contained in service list as it should be)\n");
 		else
-			printf ("FAIL: list2 not contained in service list\n");
+			svcagt_log (LEVEL_ERROR, 0, "FAIL: list2 not contained in service list\n");
 		err = list_contains (service_list, "0sajwt1", "1service1", "1utlist", NULL);
 		CU_ASSERT (1 == err);
-		printf ("List contains result %d (should be 1)\n", err);
+		svcagt_log (LEVEL_INFO, 0, "List contains result %d (should be 1)\n", err);
 		err = list_contains (service_list, "0sajwt1", "1service1", "1utlist", "0zzlist2", NULL);
 		CU_ASSERT (0 == err);
-		printf ("List contains result %d (should be 0)\n", err);
+		svcagt_log (LEVEL_INFO, 0, "List contains result %d (should be 0)\n", err);
 		remove_service_list (service_list);
 		remove_service_list (list2);
 	}
+	fd = open ("nosuch", O_RDWR, 0666);
+	if (fd < 0)
+		svcagt_log (LEVEL_ERROR, errno, "Expected error opening file nosuch");
+	CU_ASSERT (fd < 0);
+	handler_log_end ();
 
-	err = svc_agt_init ("nosuch", NULL);
+	err = svc_agt_init ("nosuch", NULL, NULL);
 	CU_ASSERT (0 != err);
 	if (err == 0) {
 		printf ("FAIL: svc_agt_init of non-existent directory should fail\n");
@@ -756,11 +801,15 @@ int pass_fail_tests (void)
 		printf ("SUCCESS: svc_sgt_init of non-existent directory failed, as it should\n"); 
 
 	svcagt_suppress_init_states = true;
-	err = svc_agt_init (run_tests_dir, run_tests_dir);
+	err = svc_agt_init (run_tests_dir, run_tests_dir, NULL);
 	CU_ASSERT (0==err);
 	if (err != 0)
 		return 0;
 
+	fd = open ("nosuch", O_RDWR, 0666);
+	if (fd < 0)
+		svcagt_log (LEVEL_ERROR, errno, "Expected error opening file nosuch");
+	CU_ASSERT (fd < 0);
 
 	svcagt_db_add ("service4");
 	svcagt_db_add ("service3");
@@ -855,7 +904,7 @@ int pass_fail_tests (void)
  		RUN_TESTS_NAME ("mock_systemd_libs/usr")
 	);
 
-	err = svc_agt_init (run_tests_dir, NULL);
+	err = svc_agt_init (run_tests_dir, NULL, NULL);
 	CU_ASSERT (0==err);
 	if (err == 0)
 		err = show_goal_states_file ();
@@ -999,7 +1048,7 @@ int systemd_tests (void)
 		delay_secs = 15;
 #endif
 	svcagt_suppress_init_states = false;
-	err = svc_agt_init (run_tests_dir, NULL);
+	err = svc_agt_init (run_tests_dir, NULL, NULL);
 	CU_ASSERT (0==err);
 	if (err != 0)
 		return 0;
@@ -1175,33 +1224,33 @@ int init_pass_fail_tests (void)
 	sprintf (cmds_file_buf, "%s/%s", home_dir, "mock_systemctl_cmds.txt");
 	err = remove (cmds_file_buf);
 	if ((err != 0) && (errno != ENOENT)) {
-		dbg_err (errno, "Error removing mock_systemctl_cmds.txt file\n");
+		svcagt_log (LEVEL_NO_LOGGER, errno, "Error removing mock_systemctl_cmds.txt file\n");
 		return -1;
 	}
 
 	sprintf (responses_file_buf, "%s/%s", home_dir, "mock_systemctl_responses.txt");
 	err = remove (responses_file_buf);
 	if ((err != 0) && (errno != ENOENT)) {
-		dbg_err (errno, "Error removing mock_systemctl_responses.txt file\n");
+		svcagt_log (LEVEL_NO_LOGGER, errno, "Error removing mock_systemctl_responses.txt file\n");
 		return -1;
 	}
 
 	sprintf (name_buf, "%s/%s", home_dir, "mock_systemctl_msgs.txt");
 	err = remove (name_buf);
 	if ((err != 0) && (errno != ENOENT)) {
-		dbg_err (errno, "Error removing mock_systemctl_msgs.txt file\n");
+		svcagt_log (LEVEL_NO_LOGGER, errno, "Error removing mock_systemctl_msgs.txt file\n");
 		return -1;
 	}
 
 	err = mkfifo (cmds_file_buf, 0664);
 	if (err != 0) {
-		dbg_err (errno, "Error creating mock_systemctl_cmds.txt pipe\n");
+		svcagt_log (LEVEL_NO_LOGGER, errno, "Error creating mock_systemctl_cmds.txt pipe\n");
 		return -1;
 	}
 
 	err = mkfifo (responses_file_buf, 0664);
 	if (err != 0) {
-		dbg_err (errno, "Error creating mock_systemctl_responses.txt pipe\n");
+		svcagt_log (LEVEL_NO_LOGGER, errno, "Error creating mock_systemctl_responses.txt pipe\n");
 		return -1;
 	}
 

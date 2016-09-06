@@ -30,7 +30,7 @@ int svcagt_get_service_state (const char *svc_name)
 	sprintf (cmdbuf, "%s is-active %s.service", svcagt_systemctl_cmd, svc_name);
 	exit_code = system (cmdbuf);
 	if (exit_code == -1) {
-		svcagt_log (LEVEL_ERROR,"Error invoking systemctl command, errno:%d(%s)\n", errno, strerror(errno));
+		svcagt_log (LEVEL_ERROR, errno, "Error invoking systemctl command\n");
 		return -1;
 	}
 	running = (exit_code == 0);
@@ -53,12 +53,13 @@ int svcagt_set_service_state (const char *svc_name, bool state)
 		cmd_option = "stop";
 	}
 
-	svcagt_log (LEVEL_INFO,"%s %s\n", start_stop_msg, svc_name);
+	svcagt_log (LEVEL_INFO, 0, "%s %s\n", start_stop_msg, svc_name);
 	sprintf (cmdbuf, "%s %s %s.service", 
 		svcagt_systemctl_cmd, cmd_option, svc_name); 
 	exit_code = system (cmdbuf);
 	if (exit_code != 0)
-		svcagt_log (LEVEL_ERROR,"Command %s failed, errno:%d(%s)\n", cmdbuf, errno, strerror(errno));
+		svcagt_log (LEVEL_ERROR, errno, "Command %s failed with exit %d\n",
+			cmdbuf, exit_code);
 	return exit_code;
 }
 

@@ -45,7 +45,7 @@ pthread_mutex_t log_mutex=PTHREAD_MUTEX_INITIALIZER;
 const char *test_log_date = NULL; // set this for testing
 #endif
 
-const char *jwt_log_dir = NULL;
+const char *svcagt_log_dir = NULL;
 
 const char *level_names[3] = {"ERROR", "INFO ", "DEBUG"};
 
@@ -59,6 +59,9 @@ char current_file_name[128];
 
 long current_file_size = 0;
 
+void svcagt_log ( int level, int os_errno, const char *msg, ...);
+
+#if 0
 void print_errno (void)
 {
 		char errbuf[100];
@@ -87,6 +90,7 @@ void dbg_err (int err, const char *fmt, ...)
 		printf ("%s\n", strerror_r (err, errbuf, 100));
 #endif
 }
+#endif
 
 static int my_current_date (char *date)
 {
@@ -106,7 +110,7 @@ static int my_current_date (char *date)
 static void make_file_name (void)
 {
 	sprintf (current_file_name, "%s/log%8.8s.%d", 
-		jwt_log_dir, current_file_date, current_file_num);
+		svcagt_log_dir, current_file_date, current_file_num);
 }
 
 bool log_level_is_debug (void)
@@ -145,7 +149,7 @@ int get_last_file_num_in_dir (const char *date, const char *log_dir)
 	DIR *dirp = opendir (log_dir);
 
 	if (dirp == NULL) {
-		dbg_err (errno, "Could not open log directory %s\n", log_dir);
+		svcagt_log (LEVEL_NO_LOGGER, errno, "Could not open log directory %s\n", log_dir);
 		return -1;
 	}
 
@@ -168,7 +172,7 @@ int get_last_file_num_in_dir (const char *date, const char *log_dir)
 
 int get_last_file_num (const char *date)
 {
-	return get_last_file_num_in_dir (date, jwt_log_dir);
+	return get_last_file_num_in_dir (date, svcagt_log_dir);
 }
 
 static void close_current_file (void)
@@ -186,7 +190,7 @@ static int get_current_file_size (void)
 
 	err = fstat (current_fd, &file_stat);
 	if (err != 0) {
-		dbg_err (errno, "Could not stat file %s\n", current_file_name);
+		svcagt_log (LEVEL_NO_LOGGER, errno, "Could not stat file %s\n", current_file_name);
 		close_current_file ();
 		return -1;
 	}
@@ -208,7 +212,7 @@ static int open_file (bool init)
 	make_file_name ();
 	current_fd = open (current_file_name, flags, 0666);
 	if (current_fd == -1) {
-		dbg_err (errno, "Unable to open log file %s\n", current_file_name);
+		svcagt_log (LEVEL_NO_LOGGER, errno, "Unable to open log file %s\n", current_file_name);
 		return -1;
 	}
 	current_file_size = 0;
@@ -243,24 +247,29 @@ static int open_next_file (void)
 }
 
 
-int log_init (const char *log_directory)
+int log_init (const char *log_directory, svcagtLogHandler handler)
 {
 	int err;
 
+	log_handler = handler;
+
+	if (NULL != log_handler)
+		return 0;
+
 	if (NULL == log_directory) {
-		dbg ("Null log directory given\n");
+		svcagt_log (LEVEL_NO_LOGGER, 0, "Null log directory given\n");
 		return -1;
 	}
-	jwt_log_dir = log_directory;
-	err = mkdir (jwt_log_dir, 0777);
+	svcagt_log_dir = log_directory;
+	err = mkdir (svcagt_log_dir, 0777);
 	if ((err == -1) && (errno != EEXIST)) {
-		dbg_err (errno, "Failed to create directory %s\n", log_directory);
+		svcagt_log (LEVEL_NO_LOGGER, errno, "Failed to create directory %s\n", log_directory);
 		return -1;
 	}
 	err = my_current_date (current_file_date);
 	if (err != 0)
 		return err;
-	dbg ("Current date in logger is %8.8s\n", current_file_date);
+	svcagt_log (LEVEL_NO_LOGGER, 0, "Current date in logger is %8.8s\n", current_file_date);
 	current_file_num = get_last_file_num (current_file_date);
 	if (current_file_num <= 0)
 		current_file_num = 1;
@@ -273,20 +282,19 @@ int log_shutdown (void)
 	return 0;
 }
 
-#define MSG_BUF_SIZE 512
+#define MSG_BUF_SIZE 4096
 
-int output_log (int level, const char *fmt, va_list arg_ptr, int err_code)
+int output_log (int level, char *msg_buf, const char *fmt, va_list arg_ptr, int err_code)
 {
 	int err = 0;
 	char timestamp[TIMESTAMP_BUFLEN];
-	char msg_buf[MSG_BUF_SIZE];
 	char errbuf[100];
 	const char *err_msg;
 	int header_len, error_len, buf_limit, nbytes;
 	
 	err = make_current_timestamp (timestamp);
 	if (err != 0)
-		return err;
+		timestamp[0] = '\0';
 
 	header_len = sprintf (msg_buf, "[%s] %s: ", timestamp, level_names[level]);
 	if (header_len < 0)
@@ -296,7 +304,7 @@ int output_log (int level, const char *fmt, va_list arg_ptr, int err_code)
 	error_len = 0;
 	if (err_code != 0) {
 		err_msg = strerror_r (errno, errbuf, 100);
-		error_len = strlen (err_msg)+2;
+		error_len = strlen (err_msg)+3;
 		buf_limit -= error_len;
 	}
 
@@ -305,8 +313,7 @@ int output_log (int level, const char *fmt, va_list arg_ptr, int err_code)
 		return -1;
 	nbytes = strlen(msg_buf);
 	if (err_code != 0) {
-		strcpy (msg_buf+nbytes, ": ");
-		strcpy (msg_buf+nbytes+2, err_msg);
+		sprintf (msg_buf+nbytes, ": %s\n", err_msg);
 		nbytes += error_len; 
 	}
 
@@ -327,6 +334,7 @@ int output_log (int level, const char *fmt, va_list arg_ptr, int err_code)
 	return err;
 }
 
+#if 0
 #define BUF_PRINT(level, fmt, err_code) \
     va_list arg_ptr; \
     va_start(arg_ptr, fmt); \
@@ -361,8 +369,6 @@ void log_errno (int err, const char *fmt, ...)
 	BUF_PRINT (LEVEL_ERROR, fmt, err);
 }
 
-
-
 /**
  * @brief Allows to define a log handler that will receive all logs
  * produced under the provided content.
@@ -377,63 +383,73 @@ void  svcagt_log_set_handler (svcagtLogHandler handler)
         log_handler   = handler;
         return;
 }
+#endif
 
 
-void svcagt_log (  int level, const char *msg, ...)
+void svcagt_log ( int level, int os_errno, const char *msg, ...)
 {
 	char *pTempChar = NULL;
-	int ret = 0;
+	char errbuf[100];
+	const char *err_msg;
+	int error_len, buf_limit, nbytes;
 	
 	va_list arg_ptr; 
+
+	if (level == LEVEL_NO_LOGGER) {
+		if (NULL == log_handler) {
+	    va_start(arg_ptr, msg);
+	    vprintf(msg, arg_ptr);
+	    va_end(arg_ptr);
+			if (os_errno != 0)
+				printf ("%s\n", strerror_r (os_errno, errbuf, 100));
+		}
+		return;
+	}
 	
-	pTempChar = (char *)malloc(4096);	
+	pTempChar = (char *)malloc(MSG_BUF_SIZE);
 	if(pTempChar)
 	{
+
+		if (NULL == log_handler) {
+			if ((level == LEVEL_ERROR) || (current_level >= level)) {
+				va_start (arg_ptr, msg);
+				output_log (level, pTempChar, msg, arg_ptr, os_errno);
+				va_end (arg_ptr);
+				free(pTempChar);
+				pTempChar = NULL;
+			}
+			return;
+		}
+
+		buf_limit = MSG_BUF_SIZE;
+		error_len = 0;
+		if (os_errno != 0) {
+			err_msg = strerror_r (os_errno, errbuf, 100);
+			error_len = strlen (err_msg)+3;
+			buf_limit -= error_len;
+		}
+
 		va_start(arg_ptr, msg); 
-		ret = vsnprintf(pTempChar, 4096, msg, arg_ptr);
-		if(ret < 0)
+
+		nbytes = vsnprintf(pTempChar, buf_limit, msg, arg_ptr);
+		if(nbytes < 0)
 		{
 			perror(pTempChar);
 		}
-		
 		va_end(arg_ptr);
-		
-		
-		if(log_handler != NULL)
-		{
-			log_handler (level, pTempChar);
-		
-			if(pTempChar !=NULL)
-			{
-				free(pTempChar);
-				pTempChar = NULL;
-			}
-			
-			return;
+
+		if ((nbytes >= 0) && (os_errno != 0)) {
+			sprintf (pTempChar+nbytes, ": %s\n", err_msg);
 		}
-		else
+		
+		log_handler (level, pTempChar);
+	
+		if(pTempChar !=NULL)
 		{
-			switch(level)
-			{
-				case 0:
-					log_error (pTempChar);
-					break;
-				case 1:
-					log_info (pTempChar);
-					break;
-				case 2:
-					log_dbg (pTempChar);
-					break;
-			}
+			free(pTempChar);
+			pTempChar = NULL;
+		}
 			
-			if(pTempChar !=NULL)
-			{
-				free(pTempChar);
-				pTempChar = NULL;
-			}
-			
-			return;
-		}	
 	}
 	return;	
 }

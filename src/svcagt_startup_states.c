@@ -59,11 +59,12 @@ int find_services_ (const char *services_dir)
 	char svc_name[SVCAGT_SVC_NAME_BUFLEN];
 
 	if (dirp == NULL) {
-		svcagt_log (LEVEL_ERROR,"Could not open systemd directory %s, errno:%d(%s)\n", services_dir, errno, strerror(errno));
+		svcagt_log (LEVEL_ERROR, errno, "Could not open systemd directory %s\n", 
+			services_dir);
 		return -1;
 	}
 
-	svcagt_log (LEVEL_INFO, "Finding services in %s\n", services_dir);
+	svcagt_log (LEVEL_INFO, 0, "Finding services in %s\n", services_dir);
 	service_count = 0;
 	while (1) {
 		dent = readdir (dirp);
@@ -82,7 +83,7 @@ int find_services_ (const char *services_dir)
 	}
 
 	closedir (dirp);
-	svcagt_log (LEVEL_INFO, "Found %d services in %s\n", service_count, services_dir);
+	svcagt_log (LEVEL_INFO, 0, "Found %d services in %s\n", service_count, services_dir);
 	return 0;
 }
 
@@ -137,7 +138,7 @@ int remove_excluded_services (void)
 				count++;
 		}
 	}
-	svcagt_log (LEVEL_INFO, "Excluded %d services\n", count);
+	svcagt_log (LEVEL_INFO, 0, "Excluded %d services\n", count);
 	return 0;
 }
 
@@ -151,7 +152,7 @@ int set_states_from_goals_file (void)
 	long file_pos;
 	char name_buf[SVCAGT_SVC_NAME_BUFLEN];
 
-	svcagt_log (LEVEL_INFO, "Restoring service states from goals file\n");
+	svcagt_log (LEVEL_INFO, 0, "Restoring service states from goals file\n");
 	while (1) {
 		err = svcagt_goal_state_file_read (name_buf, &state, &file_pos);
 		if (err != 0)
@@ -160,7 +161,7 @@ int set_states_from_goals_file (void)
 		if (err == 0)
 			count++;
 	}
-	svcagt_log (LEVEL_INFO, "Restored %d service states\n", count);
+	svcagt_log (LEVEL_INFO, 0, "Restored %d service states\n", count);
 	if (err == 1) // EOF
 		return 0;
 	return err;

@@ -16,9 +16,6 @@
 #include <errno.h>
 
 
-extern void dbg (const char *fmt, ...);
-extern void dbg_err (int err, const char *fmt, ...);
-
 /**
  * struct tv has two components: tv_sec and tv_usec
  *
@@ -38,7 +35,7 @@ int get_current_time (struct timeval *tv, struct tm *split_time)
 	time_t secs;
 	int err = gettimeofday (tv, NULL);
 	if (err != 0) {
-		dbg_err (err, "Error getting time of day: ");
+		svcagt_log (LEVEL_NO_LOGGER, errno, "Error getting time of day: ");
 		return err;
 	}
 	secs = (time_t) tv->tv_sec;
