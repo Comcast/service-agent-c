@@ -157,6 +157,7 @@ int svcagt_goal_state_file_append (const char *svc_name, bool state, long *file_
 	svcagt_log (LEVEL_DEBUG, 0, "Appending %s, pos %ld to goal state file\n", 
 		svc_name, *file_pos);
 	fprintf (goal_states_fp, "%d %s\n", (int)state, svc_name);
+	fflush (goal_states_fp);
 	return 0;
 }
 
@@ -167,6 +168,7 @@ int svcagt_goal_state_file_update (long file_pos, bool state)
 	if (err != 0)
 		return err;
 	fprintf (goal_states_fp, "%d", (int)state);
+	fflush (goal_states_fp);
 	return 0;
 }
 
