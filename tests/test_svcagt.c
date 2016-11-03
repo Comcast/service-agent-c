@@ -205,6 +205,13 @@ int check_mock_systemctl_running (bool verbose)
 	return 1; // success
 }
 
+int check_goal_states_file_eq (const char *args)
+{
+	char cmd_buf[256];
+	sprintf (cmd_buf, "%s/check_goal_states_file %s/svcagt_goal_states.txt %s", 
+		run_tests_dir, run_tests_dir, args);
+	return system (cmd_buf);
+}
 
 int load_goal_states_list (service_list_item_t **service_list)
 {
@@ -924,7 +931,8 @@ int pass_fail_tests (void)
 		err = svc_agt_set ((unsigned)sendmail_index, svcagt_goal_state_str(true));
 		CU_ASSERT (0==err);
 		if (err == 0)
-			err = goal_states_file_eq_test (true, "1sendmail", NULL);
+			// err = goal_states_file_eq_test (true, "1sendmail", NULL);
+			err = check_goal_states_file_eq ("true 1sendmail"); 
 		CU_ASSERT (0==err);
 		if (err == 0)
 			err = get_test ((unsigned)sendmail_index, "sendmail", true);
@@ -941,7 +949,8 @@ int pass_fail_tests (void)
 			err = goal_states_file_contains_dups_test (false);
 		CU_ASSERT (0==err);
 		if (err == 0)
-			err = goal_states_file_eq_test (true, "1sendmail", "1winbind", NULL);
+			//err = goal_states_file_eq_test (true, "1sendmail", "1winbind", NULL);
+			err = check_goal_states_file_eq ("true 1sendmail 1winbind");
 		CU_ASSERT (0==err);
 		if (err == 0)
 			err = get_test ((unsigned)winbind_index, "winbind", true);
@@ -953,7 +962,8 @@ int pass_fail_tests (void)
 			err = goal_states_file_contains_dups_test (false);
 		CU_ASSERT (0==err);
 		if (err == 0)
-			err = goal_states_file_eq_test (true, "1sendmail", "1winbind", NULL);
+			//err = goal_states_file_eq_test (true, "1sendmail", "1winbind", NULL);
+			err = check_goal_states_file_eq ("true 1sendmail 1winbind");
 		CU_ASSERT (0==err);
 	}
 	if ((err == 0) && (sshd_index >= 0)) {
@@ -963,7 +973,8 @@ int pass_fail_tests (void)
 			err = goal_states_file_contains_dups_test (false);
 		CU_ASSERT (0==err);
 		if (err == 0)
-			err = goal_states_file_eq_test (true, "1sendmail", "1winbind", "1sshd", NULL);
+			//err = goal_states_file_eq_test (true, "1sendmail", "1winbind", "1sshd", NULL);
+			err = check_goal_states_file_eq ("true 1sendmail 1winbind 1sshd");
 		CU_ASSERT (0==err);
 		if (err == 0)
 			err = get_all_contains_test (true, "1sendmail", "1sshd", "1winbind", NULL);
@@ -972,10 +983,12 @@ int pass_fail_tests (void)
 			err = get_test ((unsigned)sshd_index, "sshd", true);
 		CU_ASSERT (0==err);
 		if (err == 0)
-			err = goal_states_file_eq_test (false, "1sendmail", "1winbind", "0sshd", NULL);
+			//err = goal_states_file_eq_test (false, "1sendmail", "1winbind", "0sshd", NULL);
+			err = check_goal_states_file_eq ("false 1sendmail 1winbind 0sshd");
 		CU_ASSERT (0==err);
 		if (err == 0)
-			err = goal_states_file_eq_test (false, "1sendmail", "1winbind", NULL);
+			//err = goal_states_file_eq_test (false, "1sendmail", "1winbind", NULL);
+			err = check_goal_states_file_eq ("false 1sendmail 1winbind");
 		CU_ASSERT (0==err);
 	}
 	if ((err == 0) && (sm_client_index >= 0)) {
@@ -985,8 +998,9 @@ int pass_fail_tests (void)
 			err = goal_states_file_contains_dups_test (false);
 		CU_ASSERT (0==err);
 		if (err == 0)
-			err = goal_states_file_eq_test 
-				(true, "1sendmail", "1winbind", "1sshd", "1sm-client", NULL);
+			//err = goal_states_file_eq_test 
+			//	(true, "1sendmail", "1winbind", "1sshd", "1sm-client", NULL);
+			err = check_goal_states_file_eq ("true 1sendmail 1winbind 1sshd 1sm-client");
 		CU_ASSERT (0==err);
 		if (err == 0)
 			err = goal_states_file_contains_test
@@ -1010,8 +1024,9 @@ int pass_fail_tests (void)
 			err = svc_agt_set ((unsigned)sm_client_index, svcagt_goal_state_str(false));
 		CU_ASSERT (0==err);
 		if (err == 0)
-			err = goal_states_file_eq_test 
-				(true, "1sendmail", "1winbind", "1sshd", "0sm-client", NULL);
+			//err = goal_states_file_eq_test 
+			//	(true, "1sendmail", "1winbind", "1sshd", "0sm-client", NULL);
+			err = check_goal_states_file_eq ("true 1sendmail 1winbind 1sshd 0sm-client");
 		CU_ASSERT (0==err);
 		if (err == 0)
 			err = get_all_contains_test (true, "1sendmail", "0sm-client", "1sshd", "1winbind", NULL);
@@ -1208,7 +1223,7 @@ int systemd_tests (void)
 	}
 	svc_agt_shutdown ();
 	return 0;
-}
+} // end systemd_tests
 
 int init_pass_fail_tests (void)
 {

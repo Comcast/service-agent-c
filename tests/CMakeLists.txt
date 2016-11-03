@@ -34,6 +34,10 @@ add_executable(mock_systemctl mock_systemctl.c)
 
 target_link_libraries (mock_systemctl -lm)
 
+add_executable(check_goal_states_file check_goal_states_file.c)
+
+target_link_libraries (check_goal_states_file -lm)
+
 target_link_libraries (test_svcagt gcov)
 target_link_libraries (test_svcagt cunit)
 target_link_libraries (test_svcagt -lm)
