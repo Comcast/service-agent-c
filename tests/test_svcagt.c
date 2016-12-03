@@ -209,7 +209,7 @@ int check_goal_states_file_eq (const char *args)
 {
 	char cmd_buf[256];
 	sprintf (cmd_buf, "%s/check_goal_states_file %s/svcagt_goal_states.txt %s", 
-		run_tests_dir, run_tests_dir, args);
+		build_tests_dir, run_tests_dir, args);
 	return system (cmd_buf);
 }
 
