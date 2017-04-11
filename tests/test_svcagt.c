@@ -215,6 +215,7 @@ int check_goal_states_file_eq (const char *args)
 
 int load_goal_states_list (service_list_item_t **service_list)
 {
+	FILE *goal_states_fp;
 	int err;
 	int index;
 	bool goal_state;
@@ -226,13 +227,18 @@ int load_goal_states_list (service_list_item_t **service_list)
 	char svc_name_buf[128];
 	char *svc_name;
 
-	err = svcagt_goal_state_file_rewind ();
+  err = svcagt_goal_state_file_open (&goal_states_fp);
+  if (err != 0)
+    return err;
+
+	err = svcagt_goal_state_file_rewind (goal_states_fp);
 	if (err != 0)
 		return err;
 
 	index = 0;
 	while (true) {
-		err = svcagt_goal_state_file_read (svc_name_buf, &goal_state, &file_pos);
+		err = svcagt_goal_state_file_read (goal_states_fp, svc_name_buf, 
+			&goal_state, &file_pos);
 		if (err == 1)
 			break;
 		if (err != 0)
@@ -254,6 +260,8 @@ int load_goal_states_list (service_list_item_t **service_list)
 		DL_APPEND (item_list, item);
 		index++;
 	}
+
+	svcagt_goal_state_file_close (&goal_states_fp);
 
 	//fclose (fp);
 	*service_list = item_list;

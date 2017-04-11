@@ -261,6 +261,7 @@ int svcagt_get_index (const char *name, unsigned *index, bool *state)
 
 int svcagt_db_set (unsigned index, bool state)
 {
+	FILE *goal_states_fp;
 	int err;
 	bool new_value = state;
 	struct my_service_struct *db_node;
@@ -271,21 +272,27 @@ int svcagt_db_set (unsigned index, bool state)
 	}
 
 	pthread_mutex_lock (&svcagt_mutex);
+  err = svcagt_goal_state_file_open (&goal_states_fp);
+  if (err != 0)
+    return err;
 	db_node = service_index[index];
 	if (db_node->state_file_pos == -1) {
 		long file_pos;
 		svcagt_set_service_state (db_node->name, new_value);
 		svcagt_log (LEVEL_DEBUG, 0, "Appending %s to goal state file\n", db_node->name);
-		err = svcagt_goal_state_file_append (db_node->name, new_value, &file_pos);
+		err = svcagt_goal_state_file_append (goal_states_fp, db_node->name, 
+			new_value, &file_pos);
 		if (err == 0)
 			db_node->state_file_pos = file_pos;
 	} else if (new_value != db_node->goal_state) {
 		svcagt_set_service_state (db_node->name, new_value);
 		svcagt_log (LEVEL_DEBUG, 0, "Updating %s:%d in goal state file at pos %ld\n", 
 			db_node->name, new_value, db_node->state_file_pos);
-		err = svcagt_goal_state_file_update (db_node->state_file_pos, new_value);
+		err = svcagt_goal_state_file_update (goal_states_fp, 
+			db_node->state_file_pos, new_value);
 	}
 	db_node->goal_state = new_value;
+	svcagt_goal_state_file_close (&goal_states_fp);
 	pthread_mutex_unlock (&svcagt_mutex);
 	return 0;
 }

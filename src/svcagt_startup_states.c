@@ -146,6 +146,7 @@ int remove_excluded_services (void)
 // as specified in the file.
 int set_states_from_goals_file (void)
 {
+	FILE *goal_states_fp;
 	int err = 0;
 	int count = 0;
 	bool state;
@@ -153,14 +154,24 @@ int set_states_from_goals_file (void)
 	char name_buf[SVCAGT_SVC_NAME_BUFLEN];
 
 	svcagt_log (LEVEL_INFO, 0, "Restoring service states from goals file\n");
+
+  err = svcagt_goal_state_file_open (&goal_states_fp);
+  if (err != 0)
+    return err;
+	err = seek_file_pos (goal_states_fp, 0);
+	if (err != 0)
+		return err;
+
 	while (1) {
-		err = svcagt_goal_state_file_read (name_buf, &state, &file_pos);
+		err = svcagt_goal_state_file_read (goal_states_fp, name_buf, &state, &file_pos);
 		if (err != 0)
 			break;
 		err = svcagt_set_by_name (name_buf, state, file_pos);
 		if (err == 0)
 			count++;
 	}
+
+	svcagt_goal_state_file_close (&goal_states_fp);
 	svcagt_log (LEVEL_INFO, 0, "Restored %d service states\n", count);
 	if (err == 1) // EOF
 		return 0;
