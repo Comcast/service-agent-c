@@ -114,8 +114,10 @@ int svcagt_goal_state_file_close (FILE **fp)
 
 int svcagt_files_open (const char *svcagt_directory, const char *svcagt_ex_directory)
 {
+#ifdef SVCAGT_KEEP_GOALS_OPEN
 	int err;
 	FILE *goal_states_fp;
+#endif
 
 	sprintf (exclude_fname, "%s/svcagt_exclude_services.txt", svcagt_ex_directory);
 	sprintf (goal_states_fname, "%s/svcagt_goal_states.txt", svcagt_directory);
@@ -127,10 +129,14 @@ int svcagt_files_open (const char *svcagt_directory, const char *svcagt_ex_direc
 	else
 		svcagt_log (LEVEL_INFO, 0, "Opened file %s\n", exclude_fname);
 
+#ifdef SVCAGT_KEEP_GOALS_OPEN
   err = goal_state_file_open__ (&goal_states_fp);
   if (err != 0)
     return err;
 	return seek_file_pos (goal_states_fp, 0);
+#else
+	return 0;
+#endif
 }
 
 int svcagt_goal_state_file_rewind (FILE *fp)
