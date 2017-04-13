@@ -14,10 +14,10 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-/* Define this if goal state file is to be kept open, rather
+/* Define this if files are to be kept open, rather
  * than open/close on each write
 */ 
-//#define SVCAGT_KEEP_GOALS_OPEN 1
+//#define SVCAGT_KEEP_FILES_OPEN 1
 
 
 #define FILENAME_BUFLEN 120
@@ -37,13 +37,14 @@ int svcagt_files_open (const char *svcagt_directory, const char *svcagt_ex_direc
  */
 void svcagt_files_close (void);
 
+
 /**
- * Read one service name from the exclude file
+ * Open the exclude file.
+ * must be called after svcagt_files_open 
  *
- * @param svc_name buffer (SVCAGT_SVC_NAME_BUFLEN long) to receive the name
- * @return 0 on success, EOF at end
+ * @param fp variable to receive the file pointer
  */
-int svcagt_exclude_file_read (char *svc_name);
+int svcagt_exclude_file_open (FILE **fp);
 
 /**
  * Open the goal states file.
@@ -54,11 +55,19 @@ int svcagt_exclude_file_read (char *svc_name);
 int svcagt_goal_state_file_open (FILE **fp);
 
 /**
- * Close the goal states file.
+ * Close file.
  *
  * @param fp variable containing the file pointer
  */
-int svcagt_goal_state_file_close (FILE **fp);
+int svcagt_file_close (FILE **fp);
+
+/**
+ * Read one service name from the exclude file
+ *
+ * @param svc_name buffer (SVCAGT_SVC_NAME_BUFLEN long) to receive the name
+ * @return 0 on success, EOF at end
+ */
+int svcagt_exclude_file_read (FILE *fp, char *svc_name);
 
 /**
  * Read one line from the goal states file

@@ -292,7 +292,7 @@ int svcagt_db_set (unsigned index, bool state)
 			db_node->state_file_pos, new_value);
 	}
 	db_node->goal_state = new_value;
-	svcagt_goal_state_file_close (&goal_states_fp);
+	svcagt_file_close (&goal_states_fp);
 	pthread_mutex_unlock (&svcagt_mutex);
 	return 0;
 }

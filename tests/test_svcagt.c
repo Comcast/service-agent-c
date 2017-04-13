@@ -65,6 +65,8 @@ static int current_dir_id = CURRENT_DIR_IS_BUILD;
   (current_dir_id == CURRENT_DIR_IS_BUILD) ? "./tests/" name : \
   "./" name )
 
+static bool pause_test = false;
+
 /**
  * These functions are used to test the case where a log handler
  * function is supplied
@@ -261,7 +263,7 @@ int load_goal_states_list (service_list_item_t **service_list)
 		index++;
 	}
 
-	svcagt_goal_state_file_close (&goal_states_fp);
+	svcagt_file_close (&goal_states_fp);
 
 	//fclose (fp);
 	*service_list = item_list;
@@ -821,6 +823,12 @@ int pass_fail_tests (void)
 	if (err != 0)
 		return 0;
 
+	if (pause_test) {
+		char in[10];
+		printf ("Press enter to continue: ");
+		fgets (in, 10, stdin);
+	}
+
 	fd = open ("nosuch", O_RDWR, 0666);
 	if (fd < 0)
 		svcagt_log (LEVEL_ERROR, errno, "Expected error opening file nosuch");
@@ -1371,10 +1379,17 @@ void add_suites( CU_pSuite *suite )
 /*----------------------------------------------------------------------------*/
 /*                             External Functions                             */
 /*----------------------------------------------------------------------------*/
-int main( void )
+int main( int argc, char **argv )
 {
     unsigned rv = 1;
     CU_pSuite suite = NULL;
+
+		pause_test = false;
+		if (argc > 1) {
+			const char *arg = argv[1];
+			if ((arg[0] == 'p') || (arg[0] == 'P'))
+				pause_test = true;
+		}
 
     if( CUE_SUCCESS == CU_initialize_registry() ) {
         add_suites( &suite );

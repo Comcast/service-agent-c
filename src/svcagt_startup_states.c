@@ -122,13 +122,17 @@ static const char *extract_svc_name (char *svc_name)
 // Read the exclusion file and remove from the database all services listed.
 int remove_excluded_services (void)
 {
+	FILE *exclude_fp;
 	int err, count;
 	const char *svc_name;
 	char name_buf[SVCAGT_SVC_NAME_BUFLEN];
 
+  err = svcagt_exclude_file_open (&exclude_fp);
+  if (err != 0)
+    return err;
 	count = 0;
 	while (1) {
-		err = svcagt_exclude_file_read (name_buf);
+		err = svcagt_exclude_file_read (exclude_fp, name_buf);
 		if (err != 0)
 			break;
 		svc_name = extract_svc_name (name_buf);
@@ -138,6 +142,7 @@ int remove_excluded_services (void)
 				count++;
 		}
 	}
+	svcagt_file_close (&exclude_fp);
 	svcagt_log (LEVEL_INFO, 0, "Excluded %d services\n", count);
 	return 0;
 }
@@ -171,7 +176,7 @@ int set_states_from_goals_file (void)
 			count++;
 	}
 
-	svcagt_goal_state_file_close (&goal_states_fp);
+	svcagt_file_close (&goal_states_fp);
 	svcagt_log (LEVEL_INFO, 0, "Restored %d service states\n", count);
 	if (err == 1) // EOF
 		return 0;
